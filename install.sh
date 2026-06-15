@@ -130,6 +130,7 @@ sudo apt-get install -y -q \
     libvtk9-dev \
     libxml2-dev \
     libxslt-dev \
+    libpetsc-real-dev \
     pkg-config \
     || err "apt install failed"
 
@@ -273,11 +274,32 @@ else
     done
     ok "Patches applied"
 
-    log "CMake svMultiPhysics (with MPI)..."
+    # PETSc/GAMG (required for the moving-boundary mesh equation): svMP links -lpetsc,
+    # apt provides libpetsc_real.so -> build a local symlink dir that svMP expects.
+    PETSC_LINK="$HOME/petsc_svmp"
+    mkdir -p "$PETSC_LINK/lib"
+    if [ -d /usr/lib/petsc/include ]; then
+        ln -sf /usr/lib/petsc/include "$PETSC_LINK/include"
+    else
+        ln -sf "$(dirname "$(ls /usr/lib/petscdir/*/x86_64-linux-gnu-real/include/petsc.h 2>/dev/null | head -1)")" "$PETSC_LINK/include" 2>/dev/null || true
+    fi
+    PETSC_SO=$(ls /usr/lib/x86_64-linux-gnu/libpetsc_real.so 2>/dev/null | head -1)
+    [ -z "$PETSC_SO" ] && PETSC_SO=$(ls /usr/lib/x86_64-linux-gnu/libpetsc_real.so.* 2>/dev/null | head -1)
+    if [ -n "$PETSC_SO" ]; then
+        ln -sf "$PETSC_SO" "$PETSC_LINK/lib/libpetsc.so"
+        ok "PETSc trouvé -> $PETSC_LINK (build svMP avec GAMG)"
+        SV_PETSC_FLAG="-DSV_PETSC_DIR=$PETSC_LINK"
+    else
+        warn "PETSc introuvable (libpetsc-real-dev) -> svMP sera construit SANS PETSc (FB ok, MB non)"
+        SV_PETSC_FLAG=""
+    fi
+
+    log "CMake svMultiPhysics (MPI + PETSc/GAMG)..."
     mkdir -p build
     cd build
     cmake \
         -DSV_USE_MPI=ON \
+        $SV_PETSC_FLAG \
         -DCMAKE_BUILD_TYPE=Release \
         .. > /dev/null 2>&1
 
