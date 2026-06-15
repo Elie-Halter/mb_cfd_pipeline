@@ -304,7 +304,7 @@ else
         .. > /dev/null 2>&1
 
     log "Building svMultiPhysics (may take 15-30 min on $CORES cores)..."
-    make -j"$CORES" svmultiphysics
+    make -j"$CORES" svMultiPhysics
 
     # Locate the binary (path varies by version)
     SVMP_BUILT=$(find . -name svmultiphysics -executable -type f | head -1)
