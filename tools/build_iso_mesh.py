@@ -92,7 +92,10 @@ def build(stl_ref, orig_surf_dir, out_dir, surf_hmax=0.5, rbm_n_across=None, hmi
         _write_sol("/tmp/_iso_ref.sol", size)
         print(f"[build_iso] RBM size map: branches {size.min():.2f} mm -> aorta {size.max():.2f} mm "
               f"(caliber {cal.min():.1f}-{cal.max():.1f} mm, N_across={rbm_n_across})")
+        # -hmin/-hmax = HARD floor/ceiling: mmgs must not create edges below hmin even at
+        # sharp rims/ridges -> avoids tiny slivers (which degrade conditioning & mass conservation).
         subprocess.run(["mmgs_O3", "-in", "/tmp/_iso_ref.mesh", "-met", "/tmp/_iso_ref.sol",
+                        "-hmin", str(hmin), "-hmax", str(hmax),
                         "-hgrad", "1.3", "-hausd", "0.08", "-nr", "-out", "/tmp/_iso_surf.mesh"],
                        check=True, capture_output=True)
         mm = meshio.read("/tmp/_iso_surf.mesh")
