@@ -93,6 +93,22 @@ mb_cfd_pipeline/
 └── install.sh · check_install.sh · requirements.txt
 ```
 
+## Updating / Contributing
+Get the latest version (after changes have been pushed):
+```bash
+git pull
+```
+Publish your own changes (requires write access to the repository):
+```bash
+git add -u
+git commit -m "describe your change"
+git push
+```
+Simulation outputs and patient data are git-ignored, so local runs never conflict and are
+never pushed. Collaborators can be granted write access under **Settings → Collaborators**;
+others can fork and open a pull request. Please use **normal commits only** (no history
+rewriting / force-push) so everyone can `git pull` cleanly.
+
 ## Patient data
 This repository contains **source code only**. Any patient-derived data (segmentations, meshes,
 displacement fields, results) are **never** versioned (`.gitignore`) and are not provided here.
