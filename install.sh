@@ -278,15 +278,14 @@ else
     # apt provides libpetsc_real.so -> build a local symlink dir that svMP expects.
     PETSC_LINK="$HOME/petsc_svmp"
     mkdir -p "$PETSC_LINK/lib"
-    if [ -d /usr/lib/petsc/include ]; then
-        ln -sf /usr/lib/petsc/include "$PETSC_LINK/include"
-    else
-        ln -sf "$(dirname "$(ls /usr/lib/petscdir/*/x86_64-linux-gnu-real/include/petsc.h 2>/dev/null | head -1)")" "$PETSC_LINK/include" 2>/dev/null || true
-    fi
+    rm -f "$PETSC_LINK/include" "$PETSC_LINK/lib/libpetsc.so"   # idempotent: clean old symlinks
+    PETSC_INC=/usr/lib/petsc/include
+    [ -d "$PETSC_INC" ] || PETSC_INC=$(dirname "$(ls /usr/lib/petscdir/*/x86_64-linux-gnu-real/include/petsc.h 2>/dev/null | head -1)")
+    [ -d "$PETSC_INC" ] && ln -sfn "$PETSC_INC" "$PETSC_LINK/include"
     PETSC_SO=$(ls /usr/lib/x86_64-linux-gnu/libpetsc_real.so 2>/dev/null | head -1)
     [ -z "$PETSC_SO" ] && PETSC_SO=$(ls /usr/lib/x86_64-linux-gnu/libpetsc_real.so.* 2>/dev/null | head -1)
-    if [ -n "$PETSC_SO" ]; then
-        ln -sf "$PETSC_SO" "$PETSC_LINK/lib/libpetsc.so"
+    if [ -n "$PETSC_SO" ] && [ -d "$PETSC_LINK/include" ]; then
+        ln -sfn "$PETSC_SO" "$PETSC_LINK/lib/libpetsc.so"
         ok "PETSc trouvé -> $PETSC_LINK (build svMP avec GAMG)"
         SV_PETSC_FLAG="-DSV_PETSC_DIR=$PETSC_LINK"
     else
