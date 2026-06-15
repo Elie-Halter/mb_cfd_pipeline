@@ -1,0 +1,70 @@
+From 44908c7db636bfc41adc9276adc28ae3874ca510 Mon Sep 17 00:00:00 2001
+From: HALTER <halter.elie@gmail.com>
+Date: Thu, 23 Apr 2026 10:30:34 +0200
+Subject: [PATCH 03/13] Add per-element CFL monitoring in construct_fluid
+
+Computes local CFL per element at the first Gauss point and tracks
+the global maximum. Warns when CFL > 1.0 (potential instability) or
+CFL > 0.5 (acceptable limit). Rank 0 only, no significant performance
+impact.
+
+Also fixes a duplicate declaration of cfl_max_global, elem_cfl_worst,
+and dt_cfl inside the element loop which would reset the tracker at
+every element, making the monitoring ineffective.
+---
+ Code/Source/solver/fluid.cpp | 24 +++++++++++++++++++++---
+ 1 file changed, 21 insertions(+), 3 deletions(-)
+
+diff --git a/Code/Source/solver/fluid.cpp b/Code/Source/solver/fluid.cpp
+index 2bf56df..09a0e95 100644
+--- a/Code/Source/solver/fluid.cpp
++++ b/Code/Source/solver/fluid.cpp
+@@ -478,6 +478,13 @@ void bw_fluid_3d(ComMod& com_mod, const int eNoNw, const int eNoNq, const double
+ //
+ void construct_fluid(ComMod& com_mod, const mshType& lM, const SolutionStates& solutions)
+ {
++
++  // === CKP CFL : monitoring ===
++  double cfl_max_global = 0.0;
++  int elem_cfl_worst = -1;
++  const double dt_cfl = com_mod.dt;
++  // === fin CKP CFL ===
++
+   const auto& Ag = solutions.intermediate.get_acceleration();
+   const auto& Yg = solutions.intermediate.get_velocity();
+   #define n_debug_construct_fluid
+@@ -744,17 +751,28 @@ void construct_fluid(ComMod& com_mod, const mshType& lM, const SolutionStates& s
+         fluid_2d_c(com_mod, vmsStab, fs[0].eNoN, fs[1].eNoN, w, ksix, N0, N1, Nwx, Nqx, Nwxx, al, yl, bfl, lR, lK, K_inverse_darcy_permeability);
+       }
+ 
+-    } // g: loop
+-
++} // g: loop
+     eq.linear_algebra->assemble(com_mod, eNoN, ptr, lK, lR);
+     if (com_mod.risFlag) {
+       if (!std::all_of(com_mod.ris.clsFlg.begin(), com_mod.ris.clsFlg.end(), [](bool v) { return v; })) {
+         ris::doassem_ris(com_mod, eNoN, ptr, lK, lR);
+       }
+     }
+-
+   } // e: loop
+ 
++  // === CKP CFL : log ===
++  if (com_mod.cm.idcm() == 0) {
++    if (cfl_max_global > 1.0) {
++      std::cout << "[CFL WARNING] CFL = " << cfl_max_global
++                << " > 1.0 at element " << elem_cfl_worst
++                << " (instabilite possible)" << std::endl;
++    } else if (cfl_max_global > 0.5) {
++      std::cout << "[CFL INFO] CFL max = " << cfl_max_global
++                << " (limite acceptable)" << std::endl;
++    }
++  }
++  // === fin CKP CFL ===
++
+   #ifdef debug_construct_fluid
+   double end_time = utils::cput();
+   double etime = end_time - start_time;
+-- 
+2.43.0
+

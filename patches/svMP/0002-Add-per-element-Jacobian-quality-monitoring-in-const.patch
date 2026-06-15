@@ -1,0 +1,69 @@
+From 122510739441598ae420bbb61e331cbd0110d0b1 Mon Sep 17 00:00:00 2001
+From: HALTER <halter.elie@gmail.com>
+Date: Thu, 23 Apr 2026 10:29:59 +0200
+Subject: [PATCH 02/13] Add per-element Jacobian quality monitoring in
+ construct_mesh
+
+Tracks jac_min_global and jac_max_global across all elements in
+construct_mesh(). When the ratio J_min/J_max drops below 1%% while
+J_min remains positive, prints a diagnostic warning identifying the
+worst element. Rank 0 only, no performance impact.
+
+Useful for diagnosing mesh movement issues in ALE simulations where
+element quality degrades under large wall deformations.
+---
+ Code/Source/solver/mesh.cpp | 24 ++++++++++++++++++++++++
+ 1 file changed, 24 insertions(+)
+
+diff --git a/Code/Source/solver/mesh.cpp b/Code/Source/solver/mesh.cpp
+index b7b8cdf..dcefae4 100644
+--- a/Code/Source/solver/mesh.cpp
++++ b/Code/Source/solver/mesh.cpp
+@@ -21,6 +21,12 @@ namespace mesh {
+ 
+ void construct_mesh(ComMod& com_mod, CepMod& cep_mod, const mshType& lM, const SolutionStates& solutions)
+ {
++  // === CKP5 : Jacobian monitoring ===
++  double jac_min_global =  1.0e30;
++  double jac_max_global = -1.0e30;
++  int    elem_worst = -1;
++  // === fin CKP5 ===
++
+   const auto& Do = solutions.old.get_displacement();
+   const auto& Ag = solutions.intermediate.get_acceleration();
+   const auto& Dg = solutions.intermediate.get_displacement();
+@@ -114,6 +120,12 @@ void construct_mesh(ComMod& com_mod, CepMod& cep_mod, const mshType& lM, const S
+       if (g == 0 || !lM.lShpF) {
+         auto Nx_g = lM.Nx.rslice(g);
+         nn::gnn(eNoN, nsd, nsd, Nx_g, xl, Nx, Jac, ksix);
++
++        // === CKP5 : tracker min/max Jacobian ===
++        if (Jac < jac_min_global) { jac_min_global = Jac; elem_worst = e; }
++        if (Jac > jac_max_global) { jac_max_global = Jac; }
++        // === fin CKP5 ===
++
+         if (utils::is_zero(Jac)) {
+           throw std::runtime_error("[construct_mesh] Jacobian for element " + std::to_string(e) + " is < 0.");
+         }
+@@ -133,6 +145,18 @@ void construct_mesh(ComMod& com_mod, CepMod& cep_mod, const mshType& lM, const S
+ 
+     eq.linear_algebra->assemble(com_mod, eNoN, ptr, lK, lR);
+   }
++
++  // === CKP5 : log du Jacobian min/max et ratio ===
++  if (com_mod.cm.idcm() == 0) {
++    double ratio = (jac_max_global > 0) ? jac_min_global / jac_max_global : 0.0;
++    if (ratio < 0.01 && jac_min_global > 0) {
++      std::cout << "[CKP5 WARNING] Mesh quality critical: J_min/J_max = "
++                << ratio << " at element " << elem_worst
++                << " (J_min=" << jac_min_global << ", J_max=" << jac_max_global << ")"
++                << std::endl;
++    }
++  }
++  // === fin CKP5 ===
+ }
+ 
+ };
+-- 
+2.43.0
+

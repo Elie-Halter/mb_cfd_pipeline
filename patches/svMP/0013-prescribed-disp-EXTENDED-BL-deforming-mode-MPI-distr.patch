@@ -1,0 +1,222 @@
+From 08476432e2b3bc6f2bf4757c62f0e047094d42f8 Mon Sep 17 00:00:00 2001
+From: Halter <halter.elie@gmail.com>
+Date: Tue, 9 Jun 2026 01:03:39 +0200
+Subject: [PATCH 13/13] prescribed-disp: EXTENDED (BL-deforming) mode + MPI
+ distribution
+
+Capture previously-uncommitted work: extended node set (wall + BL nodes) for
+the Prescribed_displacement BC, broadcast/partition in dist_bc, and supporting
+declarations.
+
+---
+ Code/Source/solver/ComMod.h       |  6 ++++
+ Code/Source/solver/distribute.cpp | 37 +++++++++++++++++++++--
+ Code/Source/solver/read_files.cpp | 50 +++++++++++++++++++++++++++++++
+ Code/Source/solver/set_bc.cpp     | 16 +++++-----
+ 4 files changed, 99 insertions(+), 10 deletions(-)
+
+diff --git a/Code/Source/solver/ComMod.h b/Code/Source/solver/ComMod.h
+index 3ed0e85..cf34845 100644
+--- a/Code/Source/solver/ComMod.h
++++ b/Code/Source/solver/ComMod.h
+@@ -99,6 +99,12 @@ class MBType
+ 
+     // Displacements at each direction, location, and time point
+     Array3<double> d;
++
++    // === BL Deforming extension ===
++    bool extended = false;
++    int ext_nNo = 0;
++    Vector<int> ext_gN;  // 0-based global mesh indices for extended nodes
++    // === end BL extension ===
+ };
+ 
+ class rcrType
+diff --git a/Code/Source/solver/distribute.cpp b/Code/Source/solver/distribute.cpp
+index 1c8bcaa..9eef13b 100644
+--- a/Code/Source/solver/distribute.cpp
++++ b/Code/Source/solver/distribute.cpp
+@@ -694,6 +694,18 @@ void dist_bc(ComMod& com_mod, const CmMod& cm_mod, const cmType& cm, bcType& lBc
+     // Communication the .t data
+     cm.bcast(cm_mod, &lBc.gm.nTP);
+     cm.bcast(cm_mod, &lBc.gm.dof);
++    // === BL Deforming: broadcast extended flag ===
++    int ext_flag = lBc.gm.extended ? 1 : 0;
++    cm.bcast(cm_mod, &ext_flag);
++    lBc.gm.extended = (ext_flag == 1);
++    int ext_nNo_total = lBc.gm.ext_nNo;
++    cm.bcast(cm_mod, &ext_nNo_total);
++    lBc.gm.ext_nNo = ext_nNo_total;
++    if (lBc.gm.extended) {
++      if (is_slave) { lBc.gm.ext_gN.resize(ext_nNo_total); }
++      cm.bcast(cm_mod, lBc.gm.ext_gN);
++    }
++    // === end BL broadcast ===
+     int nTp = lBc.gm.nTP;
+     int iDof = lBc.gm.dof;
+ 
+@@ -702,7 +714,7 @@ void dist_bc(ComMod& com_mod, const CmMod& cm_mod, const cmType& cm, bcType& lBc
+     }
+ 
+     cm.bcast(cm_mod, lBc.gm.t);
+-    int nNo = tMs[lBc.iM].fa[lBc.iFa].nNo;
++    int nNo = lBc.gm.extended ? ext_nNo_total : tMs[lBc.iM].fa[lBc.iFa].nNo;
+     int a = nTp*iDof*nNo;
+ 
+     // Allocating the container and copying the nodes which belong to
+@@ -726,14 +738,28 @@ void dist_bc(ComMod& com_mod, const CmMod& cm_mod, const cmType& cm, bcType& lBc
+     cm.bcast(cm_mod, tmp);
+ 
+     // This is the new number of nodes
+-    a = com_mod.msh[lBc.iM].fa[lBc.iFa].nNo;
++    // === BL Deforming: local node count depends on mode ===
++    int nNo_local = 0;
++    if (lBc.gm.extended) {
++      for (int aa = 0; aa < nNo; aa++) {
++        int Ac_g = lBc.gm.ext_gN(aa);
++        if (gmtl[Ac_g] != -1) nNo_local++;
++      }
++    } else {
++      nNo_local = com_mod.msh[lBc.iM].fa[lBc.iFa].nNo;
++    }
++    a = nNo_local;
+     lBc.gm.d.resize(iDof, a, nTp);
++    // Rebuild ext_gN for local partition
++    Vector<int> ext_gN_local;
++    if (lBc.gm.extended) { ext_gN_local.resize(nNo_local); }
+     int b = 0;
+ 
+     for (int a = 0; a < nNo; a++) {
+-      int Ac = tMs[lBc.iM].fa[lBc.iFa].gN[a];
++      int Ac = lBc.gm.extended ? lBc.gm.ext_gN(a) : tMs[lBc.iM].fa[lBc.iFa].gN[a];
+       Ac = gmtl[Ac];
+       if (Ac != -1) {
++        if (lBc.gm.extended) { ext_gN_local(b) = Ac; }
+         for (int i = 0; i < nTp; i++) {
+           int j = iDof * (i*nNo + a);
+           for (int k = 0; k < iDof; k++) {
+@@ -743,6 +769,11 @@ void dist_bc(ComMod& com_mod, const CmMod& cm_mod, const cmType& cm, bcType& lBc
+         b = b + 1;
+       }
+     }
++    // === BL Deforming: store local ext_gN ===
++    if (lBc.gm.extended) {
++      lBc.gm.ext_nNo = nNo_local;
++      lBc.gm.ext_gN = ext_gN_local;
++    }
+   }
+ 
+   // Communicating profile data
+diff --git a/Code/Source/solver/read_files.cpp b/Code/Source/solver/read_files.cpp
+index e50faa3..2c29b3b 100644
+--- a/Code/Source/solver/read_files.cpp
++++ b/Code/Source/solver/read_files.cpp
+@@ -3323,7 +3323,57 @@ void read_prescribed_disp_txt(ComMod& com_mod, MBType& lMB, const faceType& lFa,
+     throw std::runtime_error("[read_prescribed_disp_txt] Invalid header in file: " + fName);
+   }
+ 
++  // Check for EXTENDED keyword (BL deforming)
++  std::string ext_kw;
++  auto fpos = file.tellg();
++  file >> ext_kw;
++  bool is_extended = (ext_kw == "EXTENDED");
++  if (!is_extended) { file.seekg(fpos); }
++
+   const int nsd = com_mod.nsd;
++
++  if (is_extended) {
++    // === EXTENDED MODE: displacement for wall + BL nodes ===
++    lMB.extended = true;
++    lMB.ext_nNo = num_nodes_file;
++    lMB.ext_gN.resize(num_nodes_file);
++    // Read GID list (1-based GlobalNodeIDs)
++    for (int i = 0; i < num_nodes_file; i++) {
++      int gid1; file >> gid1;
++      lMB.ext_gN(i) = gid1 - 1;  // store as 0-based mesh index
++    }
++    // Build GID-to-local map
++    std::map<int,int> gid_to_local;
++    for (int i = 0; i < num_nodes_file; i++) {
++      gid_to_local[lMB.ext_gN(i) + 1] = i;  // file uses 1-based
++    }
++    lMB.dof = nsd;
++    lMB.nTP = num_phases;
++    lMB.t.resize(num_phases);
++    lMB.d.resize(nsd, num_nodes_file, num_phases);
++    for (int iTP = 0; iTP < num_phases; iTP++) {
++      double t_val; file >> t_val;
++      lMB.t(iTP) = t_val;
++      for (int k = 0; k < num_nodes_file; k++) {
++        int node_id; double x, y, z;
++        file >> node_id >> x >> y >> z;
++        auto it = gid_to_local.find(node_id);
++        if (it == gid_to_local.end()) continue;
++        int idx = it->second;
++        int gi = node_id - 1;  // 0-based mesh index
++        lMB.d(0, idx, iTP) = x - ref_coords(0, gi);
++        lMB.d(1, idx, iTP) = y - ref_coords(1, gi);
++        lMB.d(2, idx, iTP) = z - ref_coords(2, gi);
++      }
++    }
++    lMB.period = lMB.t(num_phases - 1);
++    file.close();
++    std::cout << "[BL_DEFORM] EXTENDED mode: " << num_nodes_file
++              << " nodes loaded (wall+BL)" << std::endl;
++    return;
++  }
++  // === STANDARD MODE (unchanged below) ===
++
+   const int nNo = lFa.nNo;
+ 
+   lMB.dof    = nsd;
+diff --git a/Code/Source/solver/set_bc.cpp b/Code/Source/solver/set_bc.cpp
+index d10470f..6cb3598 100644
+--- a/Code/Source/solver/set_bc.cpp
++++ b/Code/Source/solver/set_bc.cpp
+@@ -872,7 +872,9 @@ void set_bc_dir(ComMod& com_mod, SolutionStates& solutions)
+       }
+       int iFa = bc.iFa;
+       int iM = bc.iM;
+-      int nNo = com_mod.msh[iM].fa[iFa].nNo;
++      // === BL Deforming: use extended node count if available ===
++      int nNo_face = com_mod.msh[iM].fa[iFa].nNo;
++      int nNo = bc.gm.extended ? bc.gm.ext_nNo : nNo_face;
+       #ifdef set_bc_dir
+       dmsg << ">> lDof: " << lDof;
+       dmsg << ">> iM: " << iM;
+@@ -890,8 +892,8 @@ void set_bc_dir(ComMod& com_mod, SolutionStates& solutions)
+       if (std::find(eDir.begin(), eDir.end(), true) != eDir.end()) {
+         if (utils::btest(bc.bType, enum_int(BoundaryConditionType::bType_impD))) {
+ 
+-          for (int a = 0; a < com_mod.msh[iM].fa[iFa].nNo; a++) {
+-            int Ac = com_mod.msh[iM].fa[iFa].gN(a);
++          for (int a = 0; a < nNo; a++) {
++            int Ac = bc.gm.extended ? bc.gm.ext_gN(a) : com_mod.msh[iM].fa[iFa].gN(a);
+             lDof = 0;
+ 
+             for (int i = 0; i < nsd; i++) {
+@@ -904,8 +906,8 @@ void set_bc_dir(ComMod& com_mod, SolutionStates& solutions)
+           }
+ 
+         } else {
+-          for (int a = 0; a < com_mod.msh[iM].fa[iFa].nNo; a++) {
+-            int Ac = com_mod.msh[iM].fa[iFa].gN(a);
++          for (int a = 0; a < nNo; a++) {
++            int Ac = bc.gm.extended ? bc.gm.ext_gN(a) : com_mod.msh[iM].fa[iFa].gN(a);
+             lDof = 0;
+             for (int i = 0; i < nsd; i++) {
+               if (eDir[i]) {
+@@ -921,8 +923,8 @@ void set_bc_dir(ComMod& com_mod, SolutionStates& solutions)
+       //
+       } else {
+         if (utils::btest(bc.bType, enum_int(BoundaryConditionType::bType_impD))) {
+-          for (int a = 0; a < com_mod.msh[iM].fa[iFa].nNo; a++) {
+-            int Ac = com_mod.msh[iM].fa[iFa].gN(a);
++          for (int a = 0; a < nNo; a++) {
++            int Ac = bc.gm.extended ? bc.gm.ext_gN(a) : com_mod.msh[iM].fa[iFa].gN(a);
+             for (int i = 0; i < tmpA.nrows(); i++) {
+               Yn(i+s,Ac) = tmpA(i,a);
+               Dn(i+s,Ac) = tmpY(i,a);
+-- 
+2.43.0
+

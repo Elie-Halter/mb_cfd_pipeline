@@ -1,0 +1,93 @@
+From 9da7fb94a77ca294c38dc3ea52a6e7265dc22548 Mon Sep 17 00:00:00 2001
+From: HALTER <halter.elie@gmail.com>
+Date: Thu, 23 Apr 2026 10:39:31 +0200
+Subject: [PATCH 04/13] l_elas: add stiff_factor parameter for per-element
+ stiffness scaling
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Extends l_elas_2d() and l_elas_3d() with an optional 'stiff_factor'
+parameter (default 1.0) that scales both Lame coefficients lambda and
+mu before assembly. This is the infrastructure for stiffness-based
+mesh diffusion (Tezduyar et al.) in the ALE mesh equation: callers
+that want to stabilize large mesh deformations can pass a factor
+based on the local Jacobian (e.g. stiff_factor = (1+eps)/(J^gamma+eps)),
+which makes distorted elements locally rigid and redirects deformation
+to healthier neighbors.
+
+The default stiff_factor=1.0 reproduces the current behavior exactly.
+Existing callers (construct_l_elas, construct_mesh) are left unchanged
+in this commit; no functional change yet.
+---
+ Code/Source/solver/l_elas.cpp | 12 ++++++++++--
+ Code/Source/solver/l_elas.h   |  6 ++++--
+ 2 files changed, 14 insertions(+), 4 deletions(-)
+
+diff --git a/Code/Source/solver/l_elas.cpp b/Code/Source/solver/l_elas.cpp
+index a29c658..66c4b21 100644
+--- a/Code/Source/solver/l_elas.cpp
++++ b/Code/Source/solver/l_elas.cpp
+@@ -147,7 +147,8 @@ void construct_l_elas(ComMod& com_mod, const mshType& lM, const SolutionStates&
+ //
+ void l_elas_2d(ComMod& com_mod, const int eNoN, const double w, const Vector<double>& N,
+     const Array<double>& Nx, const Array<double>& al, const Array<double>& dl, const Array<double>& bfl,
+-    const Array<double>& pS0l, Vector<double>& pSl, Array<double>& lR, Array3<double>& lK)
++    const Array<double>& pS0l, Vector<double>& pSl, Array<double>& lR, Array3<double>& lK,
++    const double stiff_factor)
+ {
+   using namespace consts;
+ 
+@@ -180,6 +181,9 @@ void l_elas_2d(ComMod& com_mod, const int eNoN, const double w, const Vector<dou
+ 
+   double lambda = elM*nu / (1.0+nu) / (1.0-2.0*nu);
+   double mu = elM * 0.5 / (1.0+nu);
++  // Stiffness-based mesh diffusion (Tezduyar): opt-in via stiff_factor != 1.0
++  lambda *= stiff_factor;
++  mu     *= stiff_factor;
+   double lDm = lambda / mu;
+   double T1 = eq.af*eq.beta*dt*dt;
+   double amd = eq.am / T1*rho;
+@@ -248,7 +252,8 @@ void l_elas_2d(ComMod& com_mod, const int eNoN, const double w, const Vector<dou
+ //
+ void l_elas_3d(ComMod& com_mod, const int eNoN, const double w, const Vector<double>& N, 
+     const Array<double>& Nx, const Array<double>& al, const Array<double>& dl, const Array<double>& bfl, 
+-    const Array<double>& pS0l, Vector<double>& pSl, Array<double>& lR, Array3<double>& lK)
++    const Array<double>& pS0l, Vector<double>& pSl, Array<double>& lR, Array3<double>& lK,
++    const double stiff_factor)
+ {
+   using namespace consts;
+ 
+@@ -283,6 +288,9 @@ void l_elas_3d(ComMod& com_mod, const int eNoN, const double w, const Vector<dou
+ 
+   double lambda = elM*nu / (1.0+nu) / (1.0-2.0*nu);
+   double mu = elM * 0.5 / (1.0+nu);
++  // Stiffness-based mesh diffusion (Tezduyar): opt-in via stiff_factor != 1.0
++  lambda *= stiff_factor;
++  mu     *= stiff_factor;
+   double lDm = lambda / mu;
+   double T1 = eq.af*eq.beta*dt*dt;
+   double amd = eq.am / T1*rho;
+diff --git a/Code/Source/solver/l_elas.h b/Code/Source/solver/l_elas.h
+index f62f7b9..1dcb6c2 100644
+--- a/Code/Source/solver/l_elas.h
++++ b/Code/Source/solver/l_elas.h
+@@ -16,11 +16,13 @@ void construct_l_elas(ComMod& com_mod, const mshType& lM, const SolutionStates&
+ 
+ void l_elas_2d(ComMod& com_mod, const int eNoN, const double w, const Vector<double>& N, 
+     const Array<double>& Nx, const Array<double>& al, const Array<double>& dl, const Array<double>& bfl, 
+-    const Array<double>& pS0l, Vector<double>& pSl, Array<double>& lR, Array3<double>& lK);
++    const Array<double>& pS0l, Vector<double>& pSl, Array<double>& lR, Array3<double>& lK,
++    const double stiff_factor = 1.0);
+ 
+ void l_elas_3d(ComMod& com_mod, const int eNoN, const double w, const Vector<double>& N, 
+     const Array<double>& Nx, const Array<double>& al, const Array<double>& dl, const Array<double>& bfl, 
+-    const Array<double>& pS0l, Vector<double>& pSl, Array<double>& lR, Array3<double>& lK);
++    const Array<double>& pS0l, Vector<double>& pSl, Array<double>& lR, Array3<double>& lK,
++    const double stiff_factor = 1.0);
+ 
+ };
+ 
+-- 
+2.43.0
+

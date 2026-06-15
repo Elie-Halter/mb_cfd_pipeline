@@ -1,0 +1,41 @@
+From e465b54cff0f3e6ad2ca30655c11a752bc7f15b6 Mon Sep 17 00:00:00 2001
+From: Halter <halter.elie@gmail.com>
+Date: Tue, 9 Jun 2026 01:03:39 +0200
+Subject: [PATCH 12/13] vtk_xml: fix O(N^2) deformed-mesh write
+
+A stray outer loop made the coordinate write run nNo times per VTU save
+(~1.6e10 ops for 125k nodes). Keep the deformed-mesh visualization
+(ref coords + Displacement when mvMsh), remove the redundant loop.
+
+---
+ Code/Source/solver/vtk_xml.cpp | 7 ++-----
+ 1 file changed, 2 insertions(+), 5 deletions(-)
+
+diff --git a/Code/Source/solver/vtk_xml.cpp b/Code/Source/solver/vtk_xml.cpp
+index 55446a5..0af4707 100644
+--- a/Code/Source/solver/vtk_xml.cpp
++++ b/Code/Source/solver/vtk_xml.cpp
+@@ -1026,10 +1026,8 @@ void write_vtus(Simulation* simulation, const SolutionStates& solutions, const b
+     outS[cOut+1] = nsd;
+     outNames[cOut] = "";
+ 
+-    for (int a = 0; a < msh.nNo; a++) {
+-      int Ac = msh.gN(a);
+-     // === MB VISU : écrire mesh déformé (coords ref + Displacement) ===
+-    // Le Displacement est rangé aux indices [nsd+1, 2*nsd] dans lD (après pression)
++    // === MB VISU : écrire le mesh déformé (coords ref + Displacement) ===
++    // Le Displacement est rangé aux indices [nsd+1, 2*nsd] dans lD (après pression).
+     const int is_disp = nsd + 1;
+     for (int a = 0; a < msh.nNo; a++) {
+       int Ac = msh.gN(a);
+@@ -1042,7 +1040,6 @@ void write_vtus(Simulation* simulation, const SolutionStates& solutions, const b
+       }
+     }
+     // === fin MB VISU ===
+-    }
+ 
+     nOute = 0;
+     std::fill(outNamesE.begin(), outNamesE.end(), "");
+-- 
+2.43.0
+

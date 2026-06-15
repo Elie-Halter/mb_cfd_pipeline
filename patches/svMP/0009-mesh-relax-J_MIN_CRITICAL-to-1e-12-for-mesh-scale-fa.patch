@@ -1,0 +1,26 @@
+From e612d69784f33ecbab17cce5c0c505f1472eca0f Mon Sep 17 00:00:00 2001
+From: Halter <halter.elie@gmail.com>
+Date: Mon, 25 May 2026 21:05:57 +0200
+Subject: [PATCH 09/13] mesh: relax J_MIN_CRITICAL to 1e-12 for
+ mesh-scale-factor compat
+
+---
+ Code/Source/solver/mesh.cpp | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/Code/Source/solver/mesh.cpp b/Code/Source/solver/mesh.cpp
+index f64f1ee..9b1e34a 100644
+--- a/Code/Source/solver/mesh.cpp
++++ b/Code/Source/solver/mesh.cpp
+@@ -35,7 +35,7 @@ void construct_mesh(ComMod& com_mod, CepMod& cep_mod, const mshType& lM, const S
+   const double stiff_eps = 1.0e-4;
+   const bool   use_stiffness_scaling = (stiff_exp > 0.0);
+   // Fail-fast threshold: below this, the element is considered dead.
+-  const double J_MIN_CRITICAL = 1.0e-6;
++  const double J_MIN_CRITICAL = 1.0e-12;  // relaxed for mesh-scale-factor compat
+   // === fin diffusion ===
+ 
+   const auto& Do = solutions.old.get_displacement();
+-- 
+2.43.0
+

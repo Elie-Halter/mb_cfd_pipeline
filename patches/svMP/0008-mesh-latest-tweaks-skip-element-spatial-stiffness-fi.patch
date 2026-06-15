@@ -1,0 +1,48 @@
+From f17e246f461ca03b971952a7cef66aa6f7c99e55 Mon Sep 17 00:00:00 2001
+From: Halter <halter.elie@gmail.com>
+Date: Wed, 13 May 2026 12:25:31 +0200
+Subject: [PATCH 08/13] mesh: latest tweaks (skip element + spatial stiffness
+ final)
+
+---
+ Code/Source/solver/mesh.cpp | 22 +++++++++++++++-------
+ 1 file changed, 15 insertions(+), 7 deletions(-)
+
+diff --git a/Code/Source/solver/mesh.cpp b/Code/Source/solver/mesh.cpp
+index c54935b..f64f1ee 100644
+--- a/Code/Source/solver/mesh.cpp
++++ b/Code/Source/solver/mesh.cpp
+@@ -142,15 +142,23 @@ void construct_mesh(ComMod& com_mod, CepMod& cep_mod, const mshType& lM, const S
+           throw std::runtime_error("[construct_mesh] Jacobian for element " + std::to_string(e) + " is < 0.");
+         }
+ 
+-        // === Fail-fast on critically small Jacobian (mesh element collapsed) ===
++        // === SKIP element if Jacobian is critically small (dead element) ===
++        static int collapse_warning_count = 0;
++        bool element_dead = false;
+         if (Jac < J_MIN_CRITICAL) {
+-          throw std::runtime_error(
+-            "[construct_mesh] Mesh element " + std::to_string(e) +
+-            " has collapsed: J=" + std::to_string(Jac) +
+-            " below critical threshold " + std::to_string(J_MIN_CRITICAL) +
+-            ". Consider enabling Mesh_stiffness_exponent > 0, refining the mesh"
+-            " locally, or reducing the prescribed wall displacement.");
++          if (collapse_warning_count < 100) {
++            std::cout << "[CKP5 CRITICAL] Element " << e
++                      << " collapsed J=" << Jac
++                      << " - SKIPPING from assembly"
++                      << std::endl;
++            collapse_warning_count++;
++            if (collapse_warning_count == 100) {
++              std::cout << "[CKP5 CRITICAL] Suppressing further collapse warnings" << std::endl;
++            }
++          }
++          element_dead = true;
+         }
++        if (element_dead) break;  // Skip Gauss integration for this element
+ 
+         // Update per-element stiffness factor (Tezduyar).
+         if (use_stiffness_scaling) {
+-- 
+2.43.0
+

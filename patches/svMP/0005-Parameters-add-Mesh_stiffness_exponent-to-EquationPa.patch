@@ -1,0 +1,58 @@
+From 696255d440e5fb1bcfb91b2c8600444e8421ceea Mon Sep 17 00:00:00 2001
+From: HALTER <halter.elie@gmail.com>
+Date: Thu, 23 Apr 2026 10:46:43 +0200
+Subject: [PATCH 05/13] Parameters: add Mesh_stiffness_exponent to
+ EquationParameters
+
+New XML parameter <Mesh_stiffness_exponent> on <Add_equation>, default
+0.0 (disabled). Controls per-element stiffness scaling in the mesh
+movement equation via the Tezduyar formula:
+
+    stiff_factor = (1 + eps) / (J^exponent + eps)
+
+with eps = 1e-4. Exponent 0.0 reproduces the existing uniform Laplacian
+mesh smoother. Typical values for stabilizing large wall displacements
+in ALE simulations: 1.0 (Stein et al. 2003) or 2.0 (Tezduyar).
+
+Infrastructure only in this commit: the parameter is parsed and
+available on EquationParameters, but not yet consumed by construct_mesh.
+---
+ Code/Source/solver/Parameters.cpp | 3 +++
+ Code/Source/solver/Parameters.h   | 7 +++++++
+ 2 files changed, 10 insertions(+)
+
+diff --git a/Code/Source/solver/Parameters.cpp b/Code/Source/solver/Parameters.cpp
+index c8408f5..deeb5d7 100644
+--- a/Code/Source/solver/Parameters.cpp
++++ b/Code/Source/solver/Parameters.cpp
+@@ -2339,6 +2339,9 @@ EquationParameters::EquationParameters()
+   set_parameter("Max_iterations", 1, !required, max_iterations);
+   set_parameter("Min_iterations", 1, !required, min_iterations);
+ 
++  // Stiffness-based mesh diffusion exponent (0.0 = uniform Laplacian, default).
++  set_parameter("Mesh_stiffness_exponent", 0.0, !required, mesh_stiffness_exponent);
++
+   set_parameter("Prestress", false, !required, prestress);
+ 
+   set_parameter("Tolerance", 0.5, !required, tolerance);
+diff --git a/Code/Source/solver/Parameters.h b/Code/Source/solver/Parameters.h
+index 5b3a8b6..d001ee9 100644
+--- a/Code/Source/solver/Parameters.h
++++ b/Code/Source/solver/Parameters.h
+@@ -1450,6 +1450,13 @@ class EquationParameters : public ParameterLists
+     Parameter<double> poisson_ratio;
+     Parameter<bool> prestress;
+ 
++    // Stiffness-based mesh diffusion (Tezduyar et al.). When > 0, the mesh
++    // solver rigidifies elements based on their current Jacobian:
++    //   stiff_factor = (1 + eps) / (J^exponent + eps)
++    // with eps = 1e-4. Default 0.0 reproduces uniform Laplacian behavior.
++    // Recommended range: [0, 2]. Typical values: 1.0 (Stein), 2.0 (Tezduyar).
++    Parameter<double> mesh_stiffness_exponent;
++
+     Parameter<double> source_term;
+     Parameter<double> tolerance;
+ 
+-- 
+2.43.0
+

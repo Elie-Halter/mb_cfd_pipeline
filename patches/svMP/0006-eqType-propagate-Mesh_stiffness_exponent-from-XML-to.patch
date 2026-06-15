@@ -1,0 +1,68 @@
+From 5d132df7c997e827ecdd8f2d6eb3b36e74221d7d Mon Sep 17 00:00:00 2001
+From: HALTER <halter.elie@gmail.com>
+Date: Thu, 23 Apr 2026 10:58:43 +0200
+Subject: [PATCH 06/13] eqType: propagate Mesh_stiffness_exponent from XML to
+ runtime
+
+Plumbs the XML parameter introduced in the previous commit through the
+solver pipeline so it is available inside construct_mesh():
+
+- ComMod.h: new field eqType::mesh_stiffness_exponent (default 0.0)
+- read_files.cpp: read_eq() copies EquationParameters::mesh_stiffness_exponent
+  into the runtime eqType
+- distribute.cpp: MPI broadcast of the field alongside other equation-level
+  scalars (maxItr, tol, expl_geom_cpl...)
+
+Still a no-op functionally: the field is set but nothing reads it yet.
+Backward compatible.
+---
+ Code/Source/solver/ComMod.h       | 7 +++++++
+ Code/Source/solver/distribute.cpp | 1 +
+ Code/Source/solver/read_files.cpp | 1 +
+ 3 files changed, 9 insertions(+)
+
+diff --git a/Code/Source/solver/ComMod.h b/Code/Source/solver/ComMod.h
+index ecc6392..3ed0e85 100644
+--- a/Code/Source/solver/ComMod.h
++++ b/Code/Source/solver/ComMod.h
+@@ -1215,6 +1215,13 @@ class eqType
+ 
+     /// @brief Body force associated with this equation
+     std::vector<bfType> bf;
++
++    /// @brief Stiffness-based mesh diffusion exponent (Tezduyar et al.).
++    ///
++    /// Only used by the mesh equation. When > 0, per-element Lame coefficients
++    /// in construct_mesh() are scaled by (1+eps)/(J^exponent+eps) with eps=1e-4.
++    /// Default 0.0 reproduces uniform Laplacian behavior.
++    double mesh_stiffness_exponent = 0.0;
+ };
+ 
+ /// @brief This type will be used to write data in the VTK files.
+diff --git a/Code/Source/solver/distribute.cpp b/Code/Source/solver/distribute.cpp
+index ee294cd..1c8bcaa 100644
+--- a/Code/Source/solver/distribute.cpp
++++ b/Code/Source/solver/distribute.cpp
+@@ -1472,6 +1472,7 @@ void dist_eq(ComMod& com_mod, const CmMod& cm_mod, const cmType& cm, const std::
+   cm.bcast(cm_mod, &lEq.useTLS);
+   cm.bcast(cm_mod, &lEq.assmTLS);
+   cm.bcast(cm_mod, &lEq.expl_geom_cpl);
++  cm.bcast(cm_mod, &lEq.mesh_stiffness_exponent);
+ 
+   #ifdef dist_eq
+   dmsg << "lEq.nOutput: " << lEq.nOutput;
+diff --git a/Code/Source/solver/read_files.cpp b/Code/Source/solver/read_files.cpp
+index 2f3e00f..e50faa3 100644
+--- a/Code/Source/solver/read_files.cpp
++++ b/Code/Source/solver/read_files.cpp
+@@ -1407,6 +1407,7 @@ void read_eq(Simulation* simulation, EquationParameters* eq_params, eqType& lEq)
+   lEq.maxItr = eq_params->max_iterations.value();
+   lEq.tol = eq_params->tolerance.value();
+   lEq.expl_geom_cpl = eq_params->explicit_geometric_coupling.value();
++  lEq.mesh_stiffness_exponent = eq_params->mesh_stiffness_exponent.value();
+ 
+   // Initialize coupled BC.
+   //
+-- 
+2.43.0
+

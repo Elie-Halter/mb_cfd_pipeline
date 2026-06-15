@@ -1,0 +1,57 @@
+From 0376e0191fd2973ad0adb31505bb6e2a3e46ec8e Mon Sep 17 00:00:00 2001
+From: Halter <halter.elie@gmail.com>
+Date: Tue, 9 Jun 2026 01:03:39 +0200
+Subject: [PATCH 11/13] fluid: implement real convective CFL monitor (was dead
+ code)
+
+cfl_max_global was declared but never updated, so the CFL warning could never
+fire. Compute per-element CFL = |u|*dt/h_min (shortest edge) to detect
+instability when the moving mesh creates tiny elements.
+
+---
+ Code/Source/solver/fluid.cpp | 29 +++++++++++++++++++++++++++++
+ 1 file changed, 29 insertions(+)
+
+diff --git a/Code/Source/solver/fluid.cpp b/Code/Source/solver/fluid.cpp
+index 09a0e95..e46ddc3 100644
+--- a/Code/Source/solver/fluid.cpp
++++ b/Code/Source/solver/fluid.cpp
+@@ -583,6 +583,35 @@ void construct_fluid(ComMod& com_mod, const mshType& lM, const SolutionStates& s
+       }
+     }
+ 
++    // === CKP CFL : convective CFL = |u|*dt / h_min for this element ===
++    // Cheap per-element stability monitor. h_min = shortest edge (most
++    // restrictive), |u| = max nodal speed. Coords are in solver units (cm),
++    // velocity in cm/s, dt in s -> CFL is dimensionless. Diagnostic only.
++    {
++      double speed2_max = 0.0;
++      for (int a = 0; a < eNoN; a++) {
++        double s2 = 0.0;
++        for (int i = 0; i < nsd; i++) s2 += yl(i,a) * yl(i,a);
++        if (s2 > speed2_max) speed2_max = s2;
++      }
++      double h2_min = 1.0e30;
++      for (int a = 0; a < eNoN; a++) {
++        for (int b = a + 1; b < eNoN; b++) {
++          double e2 = 0.0;
++          for (int i = 0; i < nsd; i++) {
++            const double dd = xl(i,a) - xl(i,b);
++            e2 += dd * dd;
++          }
++          if (e2 < h2_min) h2_min = e2;
++        }
++      }
++      if (h2_min > 0.0) {
++        const double cfl_e = std::sqrt(speed2_max / h2_min) * dt_cfl;
++        if (cfl_e > cfl_max_global) { cfl_max_global = cfl_e; elem_cfl_worst = e; }
++      }
++    }
++    // === fin CKP CFL ===
++
+     // Initialize residual and tangents
+     lR = 0.0;
+     lK = 0.0;
+-- 
+2.43.0
+

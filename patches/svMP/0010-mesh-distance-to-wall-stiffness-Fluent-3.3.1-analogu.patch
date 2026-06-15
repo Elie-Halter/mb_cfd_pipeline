@@ -1,0 +1,200 @@
+From 59a25a64bd21baab74330b221a37ec536da3df04 Mon Sep 17 00:00:00 2001
+From: Halter <halter.elie@gmail.com>
+Date: Tue, 9 Jun 2026 01:03:39 +0200
+Subject: [PATCH 10/13] mesh: distance-to-wall stiffness (Fluent 3.3.1
+ analogue, Opt 4a)
+
+Per-element multiplier min((d_max/d_e)^gamma, cap) folded onto the Tezduyar
+J-based stiffness so the boundary layer moves quasi-rigidly. Off by default
+(gamma=0); enable via SVMP_WALL_STIFF_EXP / SVMP_WALL_STIFF_CAP. Wall distance
+cached and recomputed on remesh.
+
+---
+ Code/Source/solver/mesh.cpp | 116 +++++++++++++++++++++++++++++++++++-
+ 1 file changed, 113 insertions(+), 3 deletions(-)
+
+diff --git a/Code/Source/solver/mesh.cpp b/Code/Source/solver/mesh.cpp
+index 9b1e34a..1b666b2 100644
+--- a/Code/Source/solver/mesh.cpp
++++ b/Code/Source/solver/mesh.cpp
+@@ -16,6 +16,11 @@
+ #include <array>
+ #include <iomanip>
+ #include <math.h>
++#include <fstream>
++#include <cstdlib>
++#include <vector>
++#include <string>
++#include <algorithm>
+ 
+ namespace mesh {
+ 
+@@ -27,6 +32,12 @@ void construct_mesh(ComMod& com_mod, CepMod& cep_mod, const mshType& lM, const S
+   int    elem_worst = -1;
+   // === fin CKP5 ===
+ 
++  // === CKP5 REMESH trigger ===
++  int local_skip_count = 0;
++  const int CKP5_REMESH_THRESHOLD = 5000;  // raised: Q4 full-domain prescription, mesh eq is trivial
++  const double J_REMESH_CRITICAL = -1.0e-3;  // only severely inverted elements count
++  // === fin REMESH trigger ===
++
+   // === Stiffness-based mesh diffusion (Tezduyar) ===
+   // When mesh_stiffness_exponent > 0, per-element Lame coefficients are scaled by
+   //   stiff_factor = (1 + eps) / (J^exponent + eps)
+@@ -38,6 +49,74 @@ void construct_mesh(ComMod& com_mod, CepMod& cep_mod, const mshType& lM, const S
+   const double J_MIN_CRITICAL = 1.0e-12;  // relaxed for mesh-scale-factor compat
+   // === fin diffusion ===
+ 
++  // === Option 4a : distance-to-wall stiffness (Fluent/COMSOL analogue) ======
++  // ANSYS FLUENT spring-based smoothing (Theory Guide 3.3.1) uses a distance-
++  // weighted spring constant k_ij = 1/sqrt(|x_i - x_j|) so that small (near-
++  // wall) edges are stiff and the boundary layer translates as a quasi-rigid
++  // block, deferring distortion to the larger interior cells. We apply the
++  // equivalent per-element multiplier
++  //     dist_factor = min( (d_max / d_e)^gamma , cap )
++  // where d_e is the element's mean distance to the wall. This is multiplied
++  // onto the Tezduyar J-based stiff_factor. Disabled by default (gamma=0) so
++  // legacy runs are byte-identical; enable/tune via environment variables:
++  //     SVMP_WALL_STIFF_EXP  gamma  (e.g. 3.0; 0 = disabled)
++  //     SVMP_WALL_STIFF_CAP  max stiffening multiplier (default 1e3)
++  static const double wall_stiff_exp =
++      []{ const char* e = std::getenv("SVMP_WALL_STIFF_EXP"); return e ? std::atof(e) : 0.0; }();
++  static const double wall_stiff_cap =
++      []{ const char* e = std::getenv("SVMP_WALL_STIFF_CAP"); return e ? std::atof(e) : 1.0e3; }();
++  const bool use_wall_stiffness = (wall_stiff_exp > 0.0);
++
++  // Per-node distance to the nearest wall node, cached and recomputed only when
++  // the mesh changes (node count or object address differs, e.g. after remesh).
++  // NOTE: distances are computed from this rank's local wall nodes only. Near-
++  // wall elements always share a rank with their wall face, so their distance
++  // is exact; deep-interior nodes may be over-estimated (treated as far-field,
++  // i.e. soft) which is harmless for a mesh-regularization heuristic.
++  static std::vector<double> wall_dist;
++  static int         wd_cached_nNo = -1;
++  static const void* wd_cached_ptr = nullptr;
++  static double      wd_max = 1.0;
++  static double      wd_eps = 1.0;
++  if (use_wall_stiffness &&
++      (lM.nNo != wd_cached_nNo || static_cast<const void*>(&lM) != wd_cached_ptr)) {
++    std::vector<int> wnodes;
++    for (int iFa = 0; iFa < lM.nFa; iFa++) {
++      if (lM.fa[iFa].name.find("wall") != std::string::npos) {
++        for (int a = 0; a < lM.fa[iFa].nNo; a++) wnodes.push_back(lM.fa[iFa].gN(a));
++      }
++    }
++    const int tn = com_mod.tnNo;
++    wall_dist.assign(tn, 0.0);
++    wd_max = 0.0;
++    if (!wnodes.empty()) {
++      for (int Ac = 0; Ac < tn; Ac++) {
++        double best = 1.0e30;
++        const double x0 = com_mod.x(0, Ac), x1 = com_mod.x(1, Ac);
++        const double x2 = (com_mod.nsd == 3) ? com_mod.x(2, Ac) : 0.0;
++        for (int w : wnodes) {
++          const double dx = x0 - com_mod.x(0, w);
++          const double dy = x1 - com_mod.x(1, w);
++          const double dz = (com_mod.nsd == 3) ? x2 - com_mod.x(2, w) : 0.0;
++          const double d2 = dx*dx + dy*dy + dz*dz;
++          if (d2 < best) best = d2;
++        }
++        wall_dist[Ac] = std::sqrt(best);
++        if (wall_dist[Ac] > wd_max) wd_max = wall_dist[Ac];
++      }
++    }
++    if (wd_max <= 0.0) wd_max = 1.0;
++    wd_eps = 1.0e-3 * wd_max;   // floor so the cap governs the very-near-wall band
++    wd_cached_nNo = lM.nNo;
++    wd_cached_ptr = static_cast<const void*>(&lM);
++    if (com_mod.cm.idcm() == 0) {
++      std::cout << "[Option4a] wall-distance stiffness ON  gamma=" << wall_stiff_exp
++                << " cap=" << wall_stiff_cap << " nWallNodes=" << wnodes.size()
++                << " d_max=" << wd_max << std::endl;
++    }
++  }
++  // === fin Option 4a ===
++
+   const auto& Do = solutions.old.get_displacement();
+   const auto& Ag = solutions.intermediate.get_acceleration();
+   const auto& Dg = solutions.intermediate.get_displacement();
+@@ -121,12 +200,22 @@ void construct_mesh(ComMod& com_mod, CepMod& cep_mod, const mshType& lM, const S
+       }
+     }
+ 
++    // Option 4a: element distance-to-wall stiffening multiplier.
++    double dist_factor = 1.0;
++    if (use_wall_stiffness) {
++      double d_e = 0.0;
++      for (int a = 0; a < eNoN; a++) d_e += wall_dist[ptr(a)];
++      d_e /= eNoN;
++      const double f = std::pow(wd_max / (d_e + wd_eps), wall_stiff_exp);
++      dist_factor = std::min(f, wall_stiff_cap);
++    }
++
+     // Gauss integration
+     //
+     lR = 0.0;
+     lK = 0.0;
+     double Jac{0.0};
+-    double stiff_factor = 1.0;
++    double stiff_factor = dist_factor;
+ 
+     for (int g = 0; g < lM.nG; g++) {
+       if (g == 0 || !lM.lShpF) {
+@@ -146,9 +235,11 @@ void construct_mesh(ComMod& com_mod, CepMod& cep_mod, const mshType& lM, const S
+         static int collapse_warning_count = 0;
+         bool element_dead = false;
+         if (Jac < J_MIN_CRITICAL) {
++          bool is_true_collapse = (Jac < J_REMESH_CRITICAL);
+           if (collapse_warning_count < 100) {
+             std::cout << "[CKP5 CRITICAL] Element " << e
+                       << " collapsed J=" << Jac
++                      << (is_true_collapse ? " (COUNTED)" : " (sliver)")
+                       << " - SKIPPING from assembly"
+                       << std::endl;
+             collapse_warning_count++;
+@@ -156,13 +247,15 @@ void construct_mesh(ComMod& com_mod, CepMod& cep_mod, const mshType& lM, const S
+               std::cout << "[CKP5 CRITICAL] Suppressing further collapse warnings" << std::endl;
+             }
+           }
++          if (is_true_collapse) local_skip_count++;
+           element_dead = true;
+         }
+         if (element_dead) break;  // Skip Gauss integration for this element
+ 
+-        // Update per-element stiffness factor (Tezduyar).
++        // Update per-element stiffness factor (Tezduyar J-based), then fold in
++        // the Option 4a distance-to-wall multiplier (dist_factor == 1 when off).
+         if (use_stiffness_scaling) {
+-          stiff_factor = (1.0 + stiff_eps) / (std::pow(Jac, stiff_exp) + stiff_eps);
++          stiff_factor = dist_factor * (1.0 + stiff_eps) / (std::pow(Jac, stiff_exp) + stiff_eps);
+         }
+       }
+ 
+@@ -181,6 +274,23 @@ void construct_mesh(ComMod& com_mod, CepMod& cep_mod, const mshType& lM, const S
+     eq.linear_algebra->assemble(com_mod, eNoN, ptr, lK, lR);
+   }
+ 
++  // === CKP5 REMESH trigger : si seuil depasse, declenche remesh ===
++  if (local_skip_count >= CKP5_REMESH_THRESHOLD) {
++    if (com_mod.cm.idcm() == 0) {
++      std::ofstream flag("REMESH_NEEDED.flag");
++      flag << "trigger=skip_count\n";
++      flag << "count=" << local_skip_count << "\n";
++      flag << "threshold=" << CKP5_REMESH_THRESHOLD << "\n";
++      flag.close();
++      std::cout << "[CKP5 REMESH] " << local_skip_count
++                << " elements collapsed in single assembly (threshold="
++                << CKP5_REMESH_THRESHOLD << "), writing REMESH_NEEDED.flag and exiting"
++                << std::endl;
++    }
++    std::exit(0);  // orchestrator detecte le flag et lance MMG
++  }
++  // === fin REMESH trigger ===
++
+   // === CKP5 : log du Jacobian min/max et ratio ===
+   if (com_mod.cm.idcm() == 0) {
+     double ratio = (jac_max_global > 0) ? jac_min_global / jac_max_global : 0.0;
+-- 
+2.43.0
+
