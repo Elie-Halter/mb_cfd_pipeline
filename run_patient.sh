@@ -75,6 +75,16 @@ python3 "$REPO/tools/make_patient_xml.py" \
     --nsteps "${NSTEPS:-1948}" --fb-out "$FB_XML" --mb-out "$MB_XML" \
   || { echo "  (make_patient_xml.py missing/needs adapting — edit $FB_XML/$MB_XML by hand from the templates)"; }
 
+# Inlet temporal flow: the XML references it by the RELATIVE name 'flow_rate.txt' and svMP
+# runs from the run dir -> stage the patient's flow file (from RCR_ARGS --flow) into FB/MB dirs.
+FLOW=$(printf '%s' "${RCR_ARGS:-}" | sed -n 's/.*--flow[ =]\+\([^ ]*\).*/\1/p')
+if [ -n "${FLOW:-}" ] && [ -f "$FLOW" ]; then
+  cp -f "$FLOW" "$FB_DIR/flow_rate.txt"; cp -f "$FLOW" "$MB_DIR/flow_rate.txt"
+  echo "  inlet flow staged -> flow_rate.txt in FB/MB run dirs ($(basename "$FLOW"))"
+else
+  echo "  WARNING: no readable --flow file in RCR_ARGS -> svMP will fail to open flow_rate.txt"
+fi
+
 # --- 5. FB RUN (rigid wall) -------------------------------------------------
 if [ "$STEP" -le 4 ]; then
   say "4/7 FB run (rigid)"
