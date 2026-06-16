@@ -122,8 +122,9 @@ def stage_morph(mesh, phases, out, X0, vid, tri, n_samples, maxiter, smooth, log
     def harmonic(db):
         o = np.empty((len(fidx), 3))
         rhs = -Lfb.dot(db)
+        import inspect; _kw = {"rtol": 1e-8} if "rtol" in inspect.signature(spl.cg).parameters else {"tol": 1e-8}
         for k in range(3):
-            o[:, k], _ = spl.cg(Lff, rhs[:, k], tol=1e-8, maxiter=400)
+            o[:, k], _ = spl.cg(Lff, rhs[:, k], maxiter=400, **_kw)
         return o
 
     en = Energy(X0, tet, free_mask)
