@@ -1,0 +1,50 @@
+From f3e2bc82bcd64e9114bdc82000afdb65a4f85f6e Mon Sep 17 00:00:00 2001
+From: MB-CFD <install@local>
+Date: Tue, 16 Jun 2026 04:29:02 +0200
+Subject: [PATCH] fluid: GCL-consistent deformed geometry in construct_fluid
+ (mass conservation under moving mesh)
+
+The fluid element geometry (xl) was taken from reference coordinates and never
+deformed by the mesh displacement, while the mesh velocity in the ALE convective
+term is at the generalized-alpha level n+af. The Jacobian and discrete divergence
+were therefore integrated over the REFERENCE domain -> spurious mass source
+proportional to dV/dt (discrete GCL violation). Evaluate xl on the deformed mesh
+at n+af (Dg) when mvMsh, consistent with the mesh velocity. Mirrors the deformed-
+geometry idiom already used for boundary normals in nn.cpp.
+
+Validated on a prescribed-dilation tube (perfect mesh, no slivers): cycle-mean
+mass leak 8.1/18.1/34.7% (at 9/18/36% volume swing) -> 0.0% across all amplitudes;
+rigid-translation control unchanged.
+---
+ Code/Source/solver/fluid.cpp | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/Code/Source/solver/fluid.cpp b/Code/Source/solver/fluid.cpp
+index e46ddc3..07d35ed 100644
+--- a/Code/Source/solver/fluid.cpp
++++ b/Code/Source/solver/fluid.cpp
+@@ -487,6 +487,7 @@ void construct_fluid(ComMod& com_mod, const mshType& lM, const SolutionStates& s
+ 
+   const auto& Ag = solutions.intermediate.get_acceleration();
+   const auto& Yg = solutions.intermediate.get_velocity();
++  const auto& Dg = solutions.intermediate.get_displacement();  // GCL: alpha-level mesh displacement (n+af)
+   #define n_debug_construct_fluid
+   #ifdef debug_construct_fluid
+   DebugMsg dmsg(__func__, com_mod.cm.idcm());
+@@ -575,6 +576,13 @@ void construct_fluid(ComMod& com_mod, const mshType& lM, const SolutionStates& s
+ 
+       for (int i = 0; i < xl.nrows(); i++) {
+         xl(i,a) = com_mod.x(i,Ac);
++        // GCL fix: evaluate the fluid element geometry on the DEFORMED mesh at the
++        // generalized-alpha level (n+af), consistent with the mesh velocity used in the
++        // ALE convective term (yl(nsd+1..)). Without this, the Jacobian and the discrete
++        // divergence are integrated over the REFERENCE domain while the mesh velocity
++        // describes the deforming one -> spurious mass source proportional to dV/dt
++        // (discrete GCL violation). Mirrors the deformed-geometry idiom in nn.cpp:614.
++        if (com_mod.mvMsh) xl(i,a) = xl(i,a) + Dg(i+nsd+1,Ac);
+         bfl(i,a) = com_mod.Bf(i,Ac);
+      }
+       for (int i = 0; i < al.nrows(); i++) {
+-- 
+2.43.0
+
