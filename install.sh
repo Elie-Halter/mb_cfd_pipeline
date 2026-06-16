@@ -152,8 +152,9 @@ else
     cd Commons
     mkdir -p build
     cd build
+    rm -rf ./*   # clean any failed prior configure (stale CMakeCache)
     log "CMake Commons..."
-    cmake -DCMAKE_INSTALL_PREFIX="$INSTALL_PREFIX" .. > /dev/null 2>&1
+    cmake -DCMAKE_INSTALL_PREFIX="$INSTALL_PREFIX" -DCMAKE_POLICY_VERSION_MINIMUM=3.5 .. > /dev/null 2>&1
     log "Building Commons..."
     make -j"$CORES" > /dev/null 2>&1
     log "Installing Commons..."
@@ -179,9 +180,11 @@ else
     cd LinearElasticity
     mkdir -p build
     cd build
+    rm -rf ./*   # clean any failed prior configure (stale CMakeCache)
     log "CMake LinearElasticity (with Commons from $INSTALL_PREFIX)..."
     cmake \
         -DCMAKE_INSTALL_PREFIX="$INSTALL_PREFIX" \
+        -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
         -DCOMMONS_DIR="$INSTALL_PREFIX" \
         -DCOMMONS_INCLUDE_DIR="$INSTALL_PREFIX/include" \
         -DCOMMONS_LIBRARY="$INSTALL_PREFIX/lib/libCommons.so" \
@@ -221,6 +224,7 @@ else
         -DUSE_ELAS=ON \
         -DELAS_DIR="$ELAS_BUILD_DIR" \
         -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
         .. > /dev/null 2>&1
     log "Building MMG..."
     make -j"$CORES" > /dev/null 2>&1
