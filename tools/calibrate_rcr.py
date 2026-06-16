@@ -43,7 +43,8 @@ def cycle_mean_flow(flow_file):
     """Time-averaged inlet flow over one cycle (trapezoid). Line 1 = header."""
     d = np.loadtxt(flow_file, skiprows=1)
     t, q = d[:, 0], d[:, 1]
-    return np.trapz(q, t) / (t[-1] - t[0])
+    _trapz = getattr(np, "trapezoid", None) or np.trapz   # np.trapz removed in NumPy 2.0
+    return _trapz(q, t) / (t[-1] - t[0])
 
 
 def calibrate(q_mean, map_mmhg):
