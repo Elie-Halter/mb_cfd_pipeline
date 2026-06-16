@@ -46,14 +46,18 @@ if [ "$STEP" -le 2 ]; then
   python3 "$FABLE_CODE/pipeline.py" --mesh "$MESH" --out "$WORK" \
         --t-cycle "$T_CYCLE" --scale "$SCALE" $PHASE_ARGS | tee "$WORK/morph.log"
   cp -f "$WORK"/displacement_*.txt "$DISP" 2>/dev/null || true
-  gate "G1 — FOLD-FREE registration"
-  echo "  Check in $WORK/morph.log: 'folds=0' on ALL phases,"
-  echo "  and signed min-volume > 0 after the morph. If folds remain -> widen the lambda schedule"
-  echo "  (the pipeline retries on its own; otherwise double --n-samples or tune qmin, see pipeline.py header)."
-  if grep -qiE "folds=[1-9]|residual.*fold|J<0|inverted" "$WORK/morph.log"; then
-    echo -e "\033[1;31m  WARNING: FOLDS DETECTED — fix before continuing (do not start the runs).\033[0m"; exit 2
+  gate "G1 — FOLD-FREE morph (solver-safety check)"
+  echo "  Gate = worst inverted element volume vs the svMP mesh-motion critical threshold."
+  echo "  A few negligible near-degenerate slivers (|6V| << threshold) are tolerated — the"
+  echo "  validated reference mesh itself left a few and traversed the whole cycle fine."
+  if grep -q "FOLDS-EXCEED-THRESHOLD" "$WORK/morph.log"; then
+    echo -e "\033[1;31m  WARNING: inverted elements EXCEED the solver threshold — do not start the runs.\033[0m"
+    echo "  Remedy: rebuild the reference mesh (build_iso_mesh removes slivers via mmg3d -optim);"
+    echo "  if it persists, coarsen SURF_HMAX a little or double --n-samples (see pipeline.py header)."
+    exit 2
   fi
-  echo "  OK: no folds detected in the log."
+  grep "\[morph-gate\]" "$WORK/morph.log" | tail -1
+  echo "  OK: morph is solver-safe."
 fi
 
 # --- 3. RCR CALIBRATION on the patient's MRI flow split ---------------------

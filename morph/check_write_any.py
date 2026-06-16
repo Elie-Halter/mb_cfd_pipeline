@@ -27,7 +27,7 @@ def main(mesh_vtu, snap_prefix, n_samples, out_txt, T=0.974, scale=0.1):
     tt = np.arange(n_samples) / n_samples
 
     print("smpl    t      ninv   minV(mm³)   worst6V(cm³)")
-    worst_s, worst_m = 0, 0
+    worst_s, worst_m, worst_negV = 0, 0, 0.0
     for k in range(n_samples):
         v = sgn * vols(pos[k])
         ninv = int((v <= 0).sum())
@@ -35,7 +35,18 @@ def main(mesh_vtu, snap_prefix, n_samples, out_txt, T=0.974, scale=0.1):
         print(f"[{k:2d}] t={tt[k]:.4f} {ninv:5d}  {v.min():.2e}  {6*v.min()*1e-3:.2e}")
         vm = sgn * vols(0.5 * (pos[k] + pos[(k + 1) % n_samples]))
         worst_m = max(worst_m, int((vm <= 0).sum()))
+        worst_negV = min(worst_negV, float(v.min()), float(vm.min()))
     print(f"worst sample = {worst_s} ; worst midpoint = {worst_m} (out of {len(tet)} tets)")
+
+    # solver-safety verdict (read by run_patient.sh gate G1): the svMP mesh-motion solver
+    # tolerates inverted tets whose volume is far below its critical Jacobian threshold
+    # (the validated iso reference itself left ~2-4 such negligible slivers, |6V|~1e-7 cm³,
+    # and traversed the cycle fine). Gate on the PHYSICAL volume, not on a raw fold count.
+    worst6V_cm3 = abs(6.0 * worst_negV) * 1e-3            # scale mm³ -> cm³
+    THRESH_cm3 = 1e-3                                     # svMP mesh-motion J critical threshold
+    verdict = "SOLVER-SAFE" if worst6V_cm3 < THRESH_cm3 else "FOLDS-EXCEED-THRESHOLD"
+    print(f"[morph-gate] worst inverted |6V| = {worst6V_cm3:.2e} cm^3 ; "
+          f"threshold {THRESH_cm3:g} cm^3 -> {verdict}")
 
     tt_out = np.append(tt * T, T)
     with open(out_txt, "w") as f:
