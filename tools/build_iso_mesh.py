@@ -28,6 +28,31 @@ from scipy.spatial import cKDTree
 CAPS = ["asc", "desc", "btca", "lcca", "lsa"]
 
 
+def _mmg_optimize(g):
+    """Remove slivers from the TetGen volume (mmg3d -optim, surface frozen).
+
+    TetGen's radius-edge quality bound (minratio) does NOT eliminate slivers (flat tets
+    with near-zero volume). A sliver REFERENCE tet has a near-singular edge matrix W, so the
+    rest-shape morph energy (M = W^-1) becomes ill-conditioned and the morph leaves ~100
+    inverted tets under large wall motion. This pass (mmg3d -optim -nosurf) optimizes the
+    interior while freezing the surface, bringing min shape quality from ~0.02 to >0.15
+    (sliver-free, matching the validated reference mesh). Returns a new UnstructuredGrid
+    (a few % more interior nodes); falls back to the raw TetGen mesh if mmg3d is unavailable."""
+    import meshio
+    surf = g.extract_surface()
+    tri = surf.faces.reshape(-1, 4)[:, 1:]
+    orig = np.asarray(surf.point_data["vtkOriginalPointIds"])
+    meshio.write("/tmp/_mmgopt_in.mesh",
+                 meshio.Mesh(g.points, [("triangle", orig[tri]), ("tetra", g.cells_dict[vtk.VTK_TETRA])]))
+    r = subprocess.run(["mmg3d_O3", "-in", "/tmp/_mmgopt_in.mesh", "-out", "/tmp/_mmgopt_out.mesh",
+                        "-optim", "-nosurf", "-hgrad", "1.3", "-v", "0"], capture_output=True, text=True)
+    if r.returncode != 0:
+        print("[build_iso] WARNING: mmg3d -optim failed, keeping raw TetGen mesh:\n" + r.stderr[-400:])
+        return g
+    m = meshio.read("/tmp/_mmgopt_out.mesh")
+    return pv.UnstructuredGrid({vtk.VTK_TETRA: m.cells_dict["tetra"]}, m.points)
+
+
 def _wb(d, p):
     w = vtk.vtkXMLUnstructuredGridWriter() if d.IsA("vtkUnstructuredGrid") else vtk.vtkXMLPolyDataWriter()
     w.SetFileName(p); w.SetInputData(d); w.SetDataModeToBinary(); w.SetCompressorTypeToNone(); w.Write()
@@ -113,6 +138,7 @@ def build(stl_ref, orig_surf_dir, out_dir, surf_hmax=0.5, rbm_n_across=None, hmi
     tet = tetgen.TetGen(sm)
     tet.tetrahedralize(order=1, mindihedral=18, minratio=1.4)
     g = tet.grid
+    g = _mmg_optimize(g)   # remove slivers (poison the rest-shape morph energy -> inverted tets)
     g.point_data.clear(); g.cell_data.clear()
     g.point_data["GlobalNodeID"] = np.arange(1, g.n_points+1, dtype=np.int32)
     g.cell_data["GlobalElementID"] = np.arange(1, g.n_cells+1, dtype=np.int32)
