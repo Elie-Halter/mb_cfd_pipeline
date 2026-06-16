@@ -78,11 +78,17 @@ def build(stl_ref, orig_surf_dir, out_dir, surf_hmax=0.5, rbm_n_across=None, hmi
 
     # 2. mmgs: clean + (optionally) adapt the surface to a radius-based size map
     if rbm_n_across is None:
-        _wb(s, "/tmp/_iso_ref.vtp")
-        subprocess.run(["mmgs_O3", "-in", "/tmp/_iso_ref.vtp", "-out", "/tmp/_iso_surf.vtp",
+        # medit .mesh I/O (NOT .vtp): mmgs only reads VTK formats when MMG is built with
+        # VTK support, which is not guaranteed -> use medit, which always works.
+        faces = s.faces.reshape(-1, 4)[:, 1:]
+        meshio.write("/tmp/_iso_ref.mesh", meshio.Mesh(s.points, [("triangle", faces)]))
+        subprocess.run(["mmgs_O3", "-in", "/tmp/_iso_ref.mesh", "-out", "/tmp/_iso_surf.mesh",
                         "-hmax", str(surf_hmax), "-hmin", str(surf_hmax * 0.7),
                         "-hausd", "0.08", "-nr"], check=True, capture_output=True)
-        sm = pv.read("/tmp/_iso_surf.vtp").triangulate().clean(); sm.clear_data()
+        mm = meshio.read("/tmp/_iso_surf.mesh")
+        tri = mm.cells_dict["triangle"]
+        sm = pv.PolyData(mm.points, np.hstack([np.full((len(tri), 1), 3), tri]).ravel()).clean()
+        sm.clear_data()
     else:
         # radius-based: target edge = caliber / N_across, clamped to [hmin, hmax]
         cal = _caliber(s)
