@@ -45,7 +45,8 @@ if [ "$STEP" -le 2 ]; then
   PHASE_ARGS=""; for p in $PHASES; do PHASE_ARGS="$PHASE_ARGS --phase $p"; done
   python3 "$FABLE_CODE/pipeline.py" --mesh "$MESH" --out "$WORK" \
         --t-cycle "$T_CYCLE" --scale "$SCALE" $PHASE_ARGS | tee "$WORK/morph.log"
-  cp -f "$WORK"/displacement_*.txt "$DISP" 2>/dev/null || true
+  cp -f "$WORK/displacement_all_nodes.txt" "$DISP"   # specific name: a glob also matches $DISP
+                                                     # itself -> multi-source cp fails -> stale $DISP
   gate "G1 — FOLD-FREE morph (solver-safety check)"
   echo "  Gate = worst inverted element volume vs the svMP mesh-motion critical threshold."
   echo "  A few negligible near-degenerate slivers (|6V| << threshold) are tolerated — the"
