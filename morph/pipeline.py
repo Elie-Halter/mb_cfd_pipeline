@@ -11,7 +11,7 @@ cycle fraction in (0,1); STL closed (wall + caps). The vtu mesh must carry Globa
 (otherwise it is created = index+1).
 
 Stages (all offline):
- 1. Fold-free REGISTRATION of the boundary (wall+caps) onto each phase — Laplacian N-ICP +
+ 1. Near-fold-free REGISTRATION of the boundary (wall+caps) onto each phase — Laplacian N-ICP +
     normal shooting. Automatic chaining: phases sorted by cyclic temporal distance to the
     reference, init = already-registered phase closest in time (otherwise reference).
  2. Volume MORPH: periodic PCHIP + smoothing of the interpolated boundary, harmonic
@@ -29,6 +29,9 @@ AUTO-TUNED parameters (and how to change them if needed):
  - boundary smoothing cap 0.25 mm (smooth_bnd): ~half the near-wall edge length.
 Robustness against stubborn folds: ray-based relax -> local harmonic patch (no reprojection);
 if a phase keeps folds, the pipeline RE-RUNS its registration with a doubled lambda schedule.
+The result is near-fold-free (residual slivers below the |6V| solver-safe threshold): the
+gate tolerates a handful of tiny inverted tets that the solver handles, it does not require a
+strictly J>0 mesh everywhere.
 """
 import argparse, os, sys, time
 import numpy as np

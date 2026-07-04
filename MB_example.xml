@@ -70,6 +70,7 @@
     <Velocity> true </Velocity>
     <Pressure> true </Pressure>
     <WSS> true </WSS>
+    <Vorticity> true </Vorticity>   <!-- ω=curl(u) ; hélicité = u·ω calculée en post -->
   </Output>
   <Add_BC name="asc">
     <Type> Dirichlet </Type>
@@ -79,10 +80,10 @@
     <Zero_out_perimeter> true </Zero_out_perimeter>
     <Impose_flux> true </Impose_flux>
   </Add_BC>
-  <Add_BC name="wall">
-    <Type> Dirichlet </Type>
-    <Time_dependence> Steady </Time_dependence>
-    <Value> 0 </Value>
+  <Add_BC name="wall">   <!-- FIX CL paroi mobile : v_fluide = v_maillage (non-glissement sur paroi mobile) -->
+    <Type> Prescribed_displacement </Type>
+    <Prescribed_displacement_file_path> displacement.txt </Prescribed_displacement_file_path>
+    <Impose_on_state_variable_integral> true </Impose_on_state_variable_integral>
   </Add_BC>
   <Add_BC name="desc">
     <Type> Neumann </Type>
