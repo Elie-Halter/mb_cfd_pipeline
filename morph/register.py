@@ -1,15 +1,16 @@
 """
-Non-rigid FOLD-FREE registration v3: reference boundary surface (wall+caps) -> phase STL.
+Non-rigid NEAR-FOLD-FREE registration v3: reference boundary surface (wall+caps) -> phase STL.
 
   min_D  Σ w_i ||x_i + D_i - q_i||² + λ Σ_(ij) ||D_i - D_j||²,   λ annealed 300 -> 1.
 
-Fold-free by construction: q_i obtained by NORMAL SHOOTING (ray intersection along the
+Near-fold-free by construction: q_i obtained by NORMAL SHOOTING (ray intersection along the
 deformed vertex ±normal with the STL, normal-compatibility filter) -> the pull-back has no
 spurious tangential component (which is what folded the closest-point correspondence at the
 branch saddles). Closest-point fallback if there is no intersection. Cleanup passes:
   - relax: 1-ring smoothing of folds + ray reprojection (fine steps),
   - harmonic patch WITHOUT reprojection on residual folds (we tolerate a local ~0.3 mm
-    deviation from the target, below segmentation noise, to guarantee 0 folds).
+    deviation from the target, below segmentation noise, to drive folds down toward the
+    |6V| solver-safe threshold — residual slivers below it are tolerated by the gate).
 Chaining: ref->phase_1->phase_2->phase_3; ref->phase_0.
 
 Outputs: <out_dir>/reg_<tag>.npy, reg_bnd_idx.npy, reg_tri.npy, reg_report.txt

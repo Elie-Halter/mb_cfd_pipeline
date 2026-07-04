@@ -70,6 +70,7 @@
     <Velocity> true </Velocity>
     <Pressure> true </Pressure>
     <WSS> true </WSS>
+    <Vorticity> true </Vorticity>   <!-- ω=curl(u) ; hélicité = u·ω calculée en post -->
   </Output>
   <Add_BC name="asc">
     <Type> Dirichlet </Type>
