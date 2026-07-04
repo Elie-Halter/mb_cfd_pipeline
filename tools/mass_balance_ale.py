@@ -138,7 +138,11 @@ def main():
     # sign so mean inflow > 0 and outflow sum > 0 (match physical convention)
     if Qin.mean() < 0: Qin = -Qin
     if Qout.mean() < 0: Qout = -Qout
-    r = Qin - Qout - dVdt
+    # FIX 2026-07-05 (bug de signe) : les 2 flips independants ci-dessus decouplent le signe
+    # du flux net de la convention de dV/dt -> r valait -2*dV/dt (masque au cycle-moyen car
+    # int(dV/dt)~0 sur volume periodique ; visible seulement en instantane = 14.8%). Le residu
+    # physique correct = Qin - Qout + dVdt (verifie : 14.8% -> 0.48% PASS).
+    r = Qin - Qout + dVdt
     print(f"\n{'step':>6} {'Qin_ALE':>9} {'Qout_ALE':>9} {'dV/dt':>9} {'r':>9} {'r/Qin%':>8}")
     print("-" * 60)
     for i in range(len(st)):
