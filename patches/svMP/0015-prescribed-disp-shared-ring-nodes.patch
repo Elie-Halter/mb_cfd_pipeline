@@ -1,0 +1,61 @@
+From 9ec44c86e7d6f08727c3320132e82ac7479b26a3 Mon Sep 17 00:00:00 2001
+From: Halter <halter.elie@gmail.com>
+Date: Sat, 4 Jul 2026 23:32:18 +0200
+Subject: [PATCH] prescribed-disp: include shared cap/wall ring nodes (bug #2
+ fix)
+
+Le lecteur read_prescribed_disp_txt (mode STANDARD) EXCLUAIT les noeuds partages
+cap-wall (anneaux) du mapping fichier->face, laissant leur deplacement a 0. Sous
+un mouvement full-motion a caps mobiles, les anneaux epingles a 0 pendant que la
+paroi/les caps bougent -> cisaillement -> cellules d anneau (0.1-0.3mm) inversees
+(pas ~95) -> assemblage fluide sur geometrie deformee sans garde J<0 -> FSILS abort.
+Fix : mapper TOUS les noeuds de face ; les deux faces prescrivent la meme valeur
+fichier (continue) aux anneaux, aucun conflit. Compat wall-only preservee.
+Trouve+corrige par auditabilite (2e bug apres GCL et inlet Fourier).
+
+Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>
+---
+ Code/Source/solver/read_files.cpp | 25 ++++++++-----------------
+ 1 file changed, 8 insertions(+), 17 deletions(-)
+
+diff --git a/Code/Source/solver/read_files.cpp b/Code/Source/solver/read_files.cpp
+index 2c29b3b..eadf9cf 100644
+--- a/Code/Source/solver/read_files.cpp
++++ b/Code/Source/solver/read_files.cpp
+@@ -3381,25 +3381,16 @@ void read_prescribed_disp_txt(ComMod& com_mod, MBType& lMB, const faceType& lFa,
+   lMB.t.resize(num_phases);
+   lMB.d.resize(nsd, nNo, num_phases);
+ 
+-// Construire la liste des noeuds caps à exclure
+-// en lisant toutes les faces de la même mesh sauf wall
+-std::set<int> cap_node_ids;
+-for (int iM2 = 0; iM2 < com_mod.nMsh; iM2++) {
+-  auto& msh2 = com_mod.msh[iM2];
+-  for (int iFa2 = 0; iFa2 < msh2.nFa; iFa2++) {
+-    auto& fa2 = msh2.fa[iFa2];
+-    if (fa2.name == lFa.name) continue; // skip le wall lui-même
+-    for (int a = 0; a < fa2.nNo; a++) {
+-      cap_node_ids.insert(fa2.gN(a));
+-    }
+-  }
+-}
+-
++// FIX 2026-07-04 (bug #2) : NE PLUS exclure les noeuds partages cap∩wall.
++// L'exclusion laissait leur deplacement a 0 -> anneaux cap/wall epingles ->
++// cellules d'anneau (0.1-0.3mm) inversees sous le mouvement full-motion (caps
++// mobiles) -> matrice fluide polluee (assemblage sur geometrie deformee sans
++// garde J<0) -> FSILS abort au pas ~95. Les deux faces (wall + cap) prescrivent
++// la MEME valeur fichier (continue) aux anneaux -> aucun conflit ; compat
++// wall-only preservee (son fichier vaut 0 aux anneaux par le taper).
+ std::map<int, int> global_to_local;
+ for (int a = 0; a < nNo; a++) {
+-  int gid = lFa.gN(a);
+-  if (cap_node_ids.count(gid)) continue; // exclure noeuds partagés
+-  global_to_local[gid +1] = a;
++  global_to_local[lFa.gN(a) + 1] = a;
+ }
+ 
+   for (int iTP = 0; iTP < num_phases; iTP++) {
+-- 
+2.43.0
+
