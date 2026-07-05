@@ -47,3 +47,20 @@ tools/remesh_clean.py
 tools/gen_displacement_wall.py
 tools/gen_displacement_BL.py
 tools/stage_M2.sh
+
+# --- artefacts de run/dev supplementaires (nettoyage 2026-07-05) ---
+*.pid
+.pid_*
+REMESH_NEEDED.flag
+STOP_SIM
+5000
+*.bak_*
+*.dirty.bak
+.backup_*/
+*_VTU/
+cycle3_analysis/
+original_mesh/
+# XML de test a la racine (les exemples versionnes sont MB_example.xml / FB_example.xml)
+/4826_MB_*.xml
+/4826_FB.xml
+/4826_MB.xml
