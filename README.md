@@ -135,6 +135,6 @@ If you use this software, please cite it via [`CITATION.cff`](CITATION.cff)
 [MIT](LICENSE) for the source code. Third-party dependencies (above) retain their own licenses.
 
 ## Acknowledgements
-Developed by **Elie Halter** (elie.halter@gmail.com) as part of a cardiovascular-CFD research
+Developed by **Elie Halter** (halter.elie@gmail.com) as part of a cardiovascular-CFD research
 project supervised by **Dr. Monika Colombo**, Aarhus University, Dept. of Mechanical and
 Production Engineering.
