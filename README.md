@@ -37,7 +37,7 @@ the usual failures (mesh-motion PDEs invert elements; remeshing smears the solut
 ### Install (Ubuntu 22.04 / 24.04)
 ```bash
 git clone https://github.com/Elie-Halter/mb_cfd_pipeline.git && cd mb_cfd_pipeline
-bash install.sh && source ~/.bashrc && bash check_install.sh   # MMG (USE_ELAS) + svMultiPhysics + 13 patches + Python
+bash install.sh && source ~/.bashrc && bash check_install.sh   # MMG (USE_ELAS) + svMultiPhysics + 15 patches + Python
 sudo apt install -y libpetsc-real-dev                          # PETSc/GAMG, required for the moving-boundary mesh equation
 ```
 > **GAMG is required** for the mesh-motion equation: it is set via
@@ -86,7 +86,7 @@ mb_cfd_pipeline/
 ├── tools/             setup & post-processing — see tools/README.md
 │   ├── build_iso_mesh.py · calibrate_rcr.py · make_patient_xml.py
 │   ├── extract_flowsplit_FB.py · hemo_indices.py · compare_FB_MB.py · make_figures.py · gci.py
-├── patches/svMP/      13 patches on svMultiPhysics @97ef512 (key: Prescribed_displacement EXTENDED)
+├── patches/svMP/      15 patches on svMultiPhysics @97ef512 (key: Prescribed_displacement EXTENDED)
 ├── patients/TEMPLATE.env       per-patient input config (copy & fill in)
 ├── run_patient.sh · run_MB_aniso.sh
 ├── FB_example.xml · MB_example.xml          example svMP solver inputs

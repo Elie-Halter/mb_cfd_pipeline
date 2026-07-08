@@ -28,10 +28,14 @@ Older versions (before defect fixes) are in `_old_*/`.
 | 0011 | **real CFL monitor** (fixes the dead code in 0003) | 🟢 detects MB instability |
 | 0012 | **O(N²) fix** for writing the deformed mesh in the VTUs | 🟢 fast saves + deformed visualization |
 | 0013 | `EXTENDED` mode (wall + boundary-layer displacement) + MPI | 🟢 **the moving-boundary BC** — prescribed displacement, all nodes |
+| 0014 | **GCL-consistent deformed geometry** in `construct_fluid` (deformed geometry at n+α_f, `Dg`) | 🟢 **ESSENTIAL** — the discrete-GCL / mass-conservation lock (fork commit `f3e2bc8`) |
+| 0015 | prescribed-disp **shared cap∩wall ring nodes** (map all face nodes) | 🟢 fixes ring-node pinning / adjacent-cell inversion under moving caps |
 
 **Summary:** no unused modifications remain. CFL (0003) became functional via 0011,
 and visualization (0012) no longer penalizes performance. The EXTENDED mode (0013) carries
-the moving-boundary prescription used in production.
+the moving-boundary prescription used in production; the GCL fix (0014) is the mass-conservation
+lock for the moving-boundary solve, and the shared-ring fix (0015) keeps the cap∩wall nodes valid
+under moving caps. **Total: 15 patches (0001–0015).**
 
 ## Affected svMP files
 `ComMod.h`, `Parameters.cpp/.h`, `consts.h`, `distribute.cpp`, `fluid.cpp`,

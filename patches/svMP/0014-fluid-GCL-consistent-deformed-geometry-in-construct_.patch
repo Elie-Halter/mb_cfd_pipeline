@@ -1,8 +1,8 @@
 From f3e2bc82bcd64e9114bdc82000afdb65a4f85f6e Mon Sep 17 00:00:00 2001
 From: MB-CFD <install@local>
 Date: Tue, 16 Jun 2026 04:29:02 +0200
-Subject: [PATCH] fluid: GCL-consistent deformed geometry in construct_fluid
- (mass conservation under moving mesh)
+Subject: [PATCH 14/15] fluid: GCL-consistent deformed geometry in
+ construct_fluid (mass conservation under moving mesh)
 
 The fluid element geometry (xl) was taken from reference coordinates and never
 deformed by the mesh displacement, while the mesh velocity in the ALE convective

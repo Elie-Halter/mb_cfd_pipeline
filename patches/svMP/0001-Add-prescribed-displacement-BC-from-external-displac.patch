@@ -1,7 +1,7 @@
 From ed3964308d2d9223ed7a41ec24e5e2eba7a57acf Mon Sep 17 00:00:00 2001
 From: HALTER <halter.elie@gmail.com>
 Date: Thu, 23 Apr 2026 10:29:20 +0200
-Subject: [PATCH 01/13] Add prescribed displacement BC from external
+Subject: [PATCH 01/15] Add prescribed displacement BC from external
  displacement file
 
 Introduces a new boundary condition type 'Prescribed_displacement' that
@@ -38,7 +38,7 @@ index e5dc908..c8408f5 100644
    set_parameter("Impose_flux", false, !required, impose_flux);
    set_parameter("Impose_on_state_variable_integral", false, !required, impose_on_state_variable_integral);
    set_parameter("Initial_displacements_file_path", "", !required, initial_displacements_file_path);
-+  // Image-derived prescribed node displacement file (.txt from image-based registration)
++  // Image-derived prescribed node displacement file (.txt from BioCardioLab registration)
 +  set_parameter("Prescribed_displacement_file_path", "", !required, prescribed_displacement_file_path);
  
    set_parameter("Penalty_parameter", 0.0, !required, penalty_parameter);
@@ -51,7 +51,7 @@ index 45ba95d..5b3a8b6 100644
      Parameter<bool> impose_flux;
      Parameter<bool> impose_on_state_variable_integral;
      Parameter<std::string> initial_displacements_file_path;
-+    // Image-derived prescribed node displacement file (.txt from image-based registration)
++    // Image-derived prescribed node displacement file (.txt from BioCardioLab registration)
 +    Parameter<std::string> prescribed_displacement_file_path;
  
      Parameter<double> penalty_parameter;
@@ -144,14 +144,14 @@ index 2c73823..2f3e00f 100644
 +  lMB.t.resize(num_phases);
 +  lMB.d.resize(nsd, nNo, num_phases);
 +
-+// Build the list of cap node IDs to exclude
-+// by reading all faces of the same mesh except the wall
++// Construire la liste des noeuds caps à exclure
++// en lisant toutes les faces de la même mesh sauf wall
 +std::set<int> cap_node_ids;
 +for (int iM2 = 0; iM2 < com_mod.nMsh; iM2++) {
 +  auto& msh2 = com_mod.msh[iM2];
 +  for (int iFa2 = 0; iFa2 < msh2.nFa; iFa2++) {
 +    auto& fa2 = msh2.fa[iFa2];
-+    if (fa2.name == lFa.name) continue; // skip the wall itself
++    if (fa2.name == lFa.name) continue; // skip le wall lui-même
 +    for (int a = 0; a < fa2.nNo; a++) {
 +      cap_node_ids.insert(fa2.gN(a));
 +    }
@@ -161,7 +161,7 @@ index 2c73823..2f3e00f 100644
 +std::map<int, int> global_to_local;
 +for (int a = 0; a < nNo; a++) {
 +  int gid = lFa.gN(a);
-+  if (cap_node_ids.count(gid)) continue; // exclude shared nodes
++  if (cap_node_ids.count(gid)) continue; // exclure noeuds partagés
 +  global_to_local[gid +1] = a;
 +}
 +

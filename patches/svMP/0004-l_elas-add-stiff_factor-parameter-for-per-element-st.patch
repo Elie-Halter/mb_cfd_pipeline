@@ -1,14 +1,14 @@
 From 9da7fb94a77ca294c38dc3ea52a6e7265dc22548 Mon Sep 17 00:00:00 2001
 From: HALTER <halter.elie@gmail.com>
 Date: Thu, 23 Apr 2026 10:39:31 +0200
-Subject: [PATCH 04/13] l_elas: add stiff_factor parameter for per-element
+Subject: [PATCH 04/15] l_elas: add stiff_factor parameter for per-element
  stiffness scaling
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
 
 Extends l_elas_2d() and l_elas_3d() with an optional 'stiff_factor'
-parameter (default 1.0) that scales both Lame coefficients lambda and
+parameter (default 1.0) that scales both Lamé coefficients lambda and
 mu before assembly. This is the infrastructure for stiffness-based
 mesh diffusion (Tezduyar et al.) in the ALE mesh equation: callers
 that want to stabilize large mesh deformations can pass a factor
