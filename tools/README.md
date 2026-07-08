@@ -11,6 +11,8 @@
 | `gci.py` | **Grid Convergence Index** (Celik 2008) on ≥3 grids — mesh-independence verification | `python3 gci.py --mesh M1.vtu M2.vtu M3.vtu --wall M1_*.vtp M2_*.vtp M3_*.vtp` |
 | `make_patient_xml.py` | Derives a patient's FB/MB XML files from the templates (paths repointed, comments kept) | `python3 make_patient_xml.py --fb-template … --mb-template … --mesh … --surf … --disp … --fb-out … --mb-out …` |
 | `build_iso_mesh.py` | Reference STL → all-tet mesh + surfaces (GID/EID/FaceID). Uniform, or **radius-based** (`--rbm N`: ~N elements across the local diameter → finer small branches, no SimVascular) | `python3 build_iso_mesh.py <stl> <surfaces> <out> [hmax] [--rbm 6 --hmin 0.2 --hmax 0.8]` |
+| `make_movies.py` | **Automatic visualization** (no ParaView, PyVista headless + ffmpeg): MOTION (deforming wall + phase-STL ghosts), VELOCITY (slice + streamlines, `\|v\|`), HELICITY (`H=v.ω` streamlines + isosurfaces), bonus FB-vs-MB side-by-side. mp4+gif+hero PNG per type, fixed color scales over the cycle. See its docstring (`--help`) for all options/assumptions (slice plane, seed disc, etc.) | `python3 make_movies.py <run_dir> --wall wall.vtp [--stl-dir stl/] [--cycle-start S0 --cycle-end S1] [--fb-dir <FB run>] [--types motion,velocity,helicity,fbmb]` |
+| `run_movies.sh` | End-of-run hook wrapping `make_movies.py` — append to a chain script after the last VTU is written | `tools/run_movies.sh <run_dir> --wall wall.vtp --stl-dir stl/ --cycle-start S0 --cycle-end S1 --dt 0.001 --period 0.974` |
 
 ## Units
 Mesh coordinates in mm; solver works in cm (`Mesh_scale_factor 0.1`). Velocity cm/s, pressure

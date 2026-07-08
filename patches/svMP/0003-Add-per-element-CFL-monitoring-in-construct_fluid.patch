@@ -1,7 +1,7 @@
 From 44908c7db636bfc41adc9276adc28ae3874ca510 Mon Sep 17 00:00:00 2001
 From: HALTER <halter.elie@gmail.com>
 Date: Thu, 23 Apr 2026 10:30:34 +0200
-Subject: [PATCH 03/13] Add per-element CFL monitoring in construct_fluid
+Subject: [PATCH 03/15] Add per-element CFL monitoring in construct_fluid
 
 Computes local CFL per element at the first Gauss point and tracks
 the global maximum. Warns when CFL > 1.0 (potential instability) or

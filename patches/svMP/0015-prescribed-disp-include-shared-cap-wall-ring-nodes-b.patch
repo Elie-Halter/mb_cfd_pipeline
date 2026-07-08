@@ -1,8 +1,8 @@
 From 9ec44c86e7d6f08727c3320132e82ac7479b26a3 Mon Sep 17 00:00:00 2001
 From: Halter <halter.elie@gmail.com>
 Date: Sat, 4 Jul 2026 23:32:18 +0200
-Subject: [PATCH] prescribed-disp: include shared cap/wall ring nodes (bug #2
- fix)
+Subject: [PATCH 15/15] prescribed-disp: include shared cap/wall ring nodes
+ (bug #2 fix)
 
 Le lecteur read_prescribed_disp_txt (mode STANDARD) EXCLUAIT les noeuds partages
 cap-wall (anneaux) du mapping fichier->face, laissant leur deplacement a 0. Sous

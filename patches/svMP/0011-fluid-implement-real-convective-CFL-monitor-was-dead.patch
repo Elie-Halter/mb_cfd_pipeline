@@ -1,13 +1,14 @@
 From 0376e0191fd2973ad0adb31505bb6e2a3e46ec8e Mon Sep 17 00:00:00 2001
 From: Halter <halter.elie@gmail.com>
 Date: Tue, 9 Jun 2026 01:03:39 +0200
-Subject: [PATCH 11/13] fluid: implement real convective CFL monitor (was dead
+Subject: [PATCH 11/15] fluid: implement real convective CFL monitor (was dead
  code)
 
 cfl_max_global was declared but never updated, so the CFL warning could never
 fire. Compute per-element CFL = |u|*dt/h_min (shortest edge) to detect
 instability when the moving mesh creates tiny elements.
 
+Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
 ---
  Code/Source/solver/fluid.cpp | 29 +++++++++++++++++++++++++++++
  1 file changed, 29 insertions(+)

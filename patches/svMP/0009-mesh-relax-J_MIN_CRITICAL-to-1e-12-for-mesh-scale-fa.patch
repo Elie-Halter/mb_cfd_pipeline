@@ -1,7 +1,7 @@
 From e612d69784f33ecbab17cce5c0c505f1472eca0f Mon Sep 17 00:00:00 2001
 From: Halter <halter.elie@gmail.com>
 Date: Mon, 25 May 2026 21:05:57 +0200
-Subject: [PATCH 09/13] mesh: relax J_MIN_CRITICAL to 1e-12 for
+Subject: [PATCH 09/15] mesh: relax J_MIN_CRITICAL to 1e-12 for
  mesh-scale-factor compat
 
 ---

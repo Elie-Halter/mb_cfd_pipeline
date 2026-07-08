@@ -1,7 +1,7 @@
 From 5d132df7c997e827ecdd8f2d6eb3b36e74221d7d Mon Sep 17 00:00:00 2001
 From: HALTER <halter.elie@gmail.com>
 Date: Thu, 23 Apr 2026 10:58:43 +0200
-Subject: [PATCH 06/13] eqType: propagate Mesh_stiffness_exponent from XML to
+Subject: [PATCH 06/15] eqType: propagate Mesh_stiffness_exponent from XML to
  runtime
 
 Plumbs the XML parameter introduced in the previous commit through the

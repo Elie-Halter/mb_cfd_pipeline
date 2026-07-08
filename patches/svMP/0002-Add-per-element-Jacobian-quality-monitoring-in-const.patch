@@ -1,7 +1,7 @@
 From 122510739441598ae420bbb61e331cbd0110d0b1 Mon Sep 17 00:00:00 2001
 From: HALTER <halter.elie@gmail.com>
 Date: Thu, 23 Apr 2026 10:29:59 +0200
-Subject: [PATCH 02/13] Add per-element Jacobian quality monitoring in
+Subject: [PATCH 02/15] Add per-element Jacobian quality monitoring in
  construct_mesh
 
 Tracks jac_min_global and jac_max_global across all elements in

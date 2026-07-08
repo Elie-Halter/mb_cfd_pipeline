@@ -1,7 +1,7 @@
 From ede0175863280d034ec1d707473c4cb113e0279c Mon Sep 17 00:00:00 2001
 From: HALTER <halter.elie@gmail.com>
 Date: Thu, 23 Apr 2026 11:04:45 +0200
-Subject: [PATCH 07/13] mesh: apply stiffness-based diffusion and fail-fast on
+Subject: [PATCH 07/15] mesh: apply stiffness-based diffusion and fail-fast on
  collapsed elements
 
 Activates the stiffness-based mesh diffusion scheme in construct_mesh().

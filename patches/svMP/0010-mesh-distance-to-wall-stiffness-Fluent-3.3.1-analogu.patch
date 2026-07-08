@@ -1,7 +1,7 @@
 From 59a25a64bd21baab74330b221a37ec536da3df04 Mon Sep 17 00:00:00 2001
 From: Halter <halter.elie@gmail.com>
 Date: Tue, 9 Jun 2026 01:03:39 +0200
-Subject: [PATCH 10/13] mesh: distance-to-wall stiffness (Fluent 3.3.1
+Subject: [PATCH 10/15] mesh: distance-to-wall stiffness (Fluent 3.3.1
  analogue, Opt 4a)
 
 Per-element multiplier min((d_max/d_e)^gamma, cap) folded onto the Tezduyar
@@ -9,6 +9,7 @@ J-based stiffness so the boundary layer moves quasi-rigidly. Off by default
 (gamma=0); enable via SVMP_WALL_STIFF_EXP / SVMP_WALL_STIFF_CAP. Wall distance
 cached and recomputed on remesh.
 
+Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
 ---
  Code/Source/solver/mesh.cpp | 116 +++++++++++++++++++++++++++++++++++-
  1 file changed, 113 insertions(+), 3 deletions(-)

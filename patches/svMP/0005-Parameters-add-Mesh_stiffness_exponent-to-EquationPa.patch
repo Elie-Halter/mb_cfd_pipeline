@@ -1,7 +1,7 @@
 From 696255d440e5fb1bcfb91b2c8600444e8421ceea Mon Sep 17 00:00:00 2001
 From: HALTER <halter.elie@gmail.com>
 Date: Thu, 23 Apr 2026 10:46:43 +0200
-Subject: [PATCH 05/13] Parameters: add Mesh_stiffness_exponent to
+Subject: [PATCH 05/15] Parameters: add Mesh_stiffness_exponent to
  EquationParameters
 
 New XML parameter <Mesh_stiffness_exponent> on <Add_equation>, default
