@@ -34,9 +34,6 @@ flow_rate*.txt
 # --- Kept LOCAL only (not part of the public repository) ---
 # Internal project notes / paper / abandoned approaches / unused infra.
 docs/
-apptainer/
-Dockerfile
-.dockerignore
 src/
 run.sh
 configs/

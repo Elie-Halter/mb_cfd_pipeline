@@ -1,0 +1,71 @@
+# ============================================================================
+#  Apptainer/Singularity — image MB-CFD pour cluster HPC (loué ou académique).
+#
+#  Le plus simple = convertir l'image Docker (recommandé) :
+#     docker build -t mbcfd .
+#     apptainer build mbcfd.sif docker-daemon://mbcfd:latest
+#
+#  OU build natif depuis cette def (sans Docker) :
+#     apptainer build --fakeroot mbcfd.sif apptainer/mbcfd.def
+#
+#  Run sur le cluster (SLURM) — voir docs/PORTABLE_SETUP.md :
+#     apptainer exec --bind /scratch/data:/data mbcfd.sif \
+#        bash -lc 'export PETSC_OPTIONS="-pc_type gamg -pc_gamg_type agg"; \
+#                  mpirun -np $SLURM_NTASKS svmultiphysics /data/run/<patient>_MB.xml'
+# ============================================================================
+Bootstrap: docker
+From: ubuntu:22.04
+
+%files
+    patches/svMP /opt/patches_src
+    requirements.txt /opt/repo/requirements.txt
+
+%post
+    export DEBIAN_FRONTEND=noninteractive
+    CORES=${CORES:-4}
+    SVMP_COMMIT=97ef51223e5a079bdee018bd9c0490c861c07fe0
+    apt-get update -qq && apt-get install -y -q \
+        build-essential cmake git wget ca-certificates pkg-config gfortran \
+        python3 python3-pip python3-venv python3-dev \
+        openmpi-bin libopenmpi-dev libopenblas0 libopenblas-dev \
+        libvtk9-dev libxml2-dev libxslt-dev libpetsc-real-dev
+    INSTALL_PREFIX=/usr/local
+
+    # PETSc symlinks (cf. docs/REPRODUCE.md)
+    D=/usr/lib/petscdir/petsc3.19/x86_64-linux-gnu-real
+    mkdir -p /opt/petsc_svmp/lib
+    ln -s $D/include /opt/petsc_svmp/include
+    ln -s $D/lib/libpetsc_real.so /opt/petsc_svmp/lib/libpetsc.so
+
+    # Commons + Elas + MMG (USE_ELAS)
+    git clone -q https://github.com/ISCDtoolbox/Commons.git /opt/Commons
+    cd /opt/Commons && mkdir build && cd build
+    cmake -DCMAKE_INSTALL_PREFIX=$INSTALL_PREFIX .. >/dev/null && make -j$CORES >/dev/null && make install >/dev/null
+    git clone -q https://github.com/ISCDtoolbox/LinearElasticity.git /opt/Elas
+    cd /opt/Elas && mkdir build && cd build
+    cmake -DCMAKE_INSTALL_PREFIX=$INSTALL_PREFIX -DCOMMONS_DIR=$INSTALL_PREFIX \
+          -DCOMMONS_INCLUDE_DIR=$INSTALL_PREFIX/include \
+          -DCOMMONS_LIBRARY=$INSTALL_PREFIX/lib/libCommons.so \
+          -DCMAKE_C_FLAGS="-I$INSTALL_PREFIX/include" .. >/dev/null && make -j$CORES >/dev/null && make install >/dev/null
+    git clone -q https://github.com/MmgTools/mmg.git /opt/mmg
+    cd /opt/mmg && mkdir build && cd build
+    cmake -DUSE_ELAS=ON -DELAS_DIR=/opt/Elas/build -DCMAKE_BUILD_TYPE=Release .. >/dev/null && make -j$CORES >/dev/null && make install >/dev/null
+
+    # svMultiPhysics patché + PETSc
+    git clone -q https://github.com/SimVascular/svMultiPhysics.git /opt/svMP
+    cd /opt/svMP && git checkout -q $SVMP_COMMIT
+    git config user.email build@local && git config user.name build
+    for p in $(ls /opt/patches_src/*.patch | sort); do git am "$p" || { git am --abort; exit 1; }; done
+    mkdir build && cd build
+    cmake -DSV_USE_MPI=ON -DSV_PETSC_DIR=/opt/petsc_svmp -DCMAKE_BUILD_TYPE=Release ..
+    make -j$CORES svmultiphysics
+    cp "$(find . -type f -name svmultiphysics | head -1)" /usr/local/bin/svmultiphysics
+
+    pip3 install --no-cache-dir -r /opt/repo/requirements.txt
+
+%environment
+    export LD_LIBRARY_PATH=/usr/local/lib:/opt/petsc_svmp/lib:$LD_LIBRARY_PATH
+    export SVMP_BIN=/usr/local/bin/svmultiphysics
+
+%runscript
+    exec /bin/bash "$@"
