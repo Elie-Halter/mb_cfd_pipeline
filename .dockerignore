@@ -1,0 +1,28 @@
+# Le contexte de build ne doit contenir QUE le code (le dossier local fait ~60 Go de données).
+# On exclut tout le lourd ; le COPY . ne récupère que code/patches/docs/scripts.
+data/
+docs/refs/
+docs/HANDOFF/data/
+**/*.vtu
+**/*.vtp
+**/*.vtk
+**/*.stl
+**/*.mesh
+**/*.sol
+**/*.bin
+**/*.pdf
+**/*.png
+**/*.npy
+**/*.npz
+**/displacement*.txt
+**/*.log
+*-procs/
+iterations/
+4826_FB_VTU/
+.backup_*/
+ATTEMPT_*/
+backup_*/
+.git/
+**/__pycache__/
+*.pyc
+.pid_*
