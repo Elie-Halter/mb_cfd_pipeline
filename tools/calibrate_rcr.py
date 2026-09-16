@@ -44,7 +44,9 @@ def cycle_mean_flow(flow_file):
     d = np.loadtxt(flow_file, skiprows=1)
     t, q = d[:, 0], d[:, 1]
     _trapz = getattr(np, "trapezoid", None) or np.trapz   # np.trapz removed in NumPy 2.0
-    return _trapz(q, t) / (t[-1] - t[0])
+    # svMultiPhysics inlet files are NEGATIVE (Q>0 = outflow, see tools/make_inlet_flow.py):
+    # calibrate on the magnitude so the RCR resistances stay positive whatever the file sign.
+    return abs(_trapz(q, t) / (t[-1] - t[0]))
 
 
 def calibrate(q_mean, map_mmhg):
