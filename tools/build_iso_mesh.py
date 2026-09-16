@@ -173,7 +173,10 @@ def _mmg_optimize(g, hwall=None, hgrad=1.2, hmax=None, hwall_aniso=None, rbm=Non
         # isotropic near-wall size field on the CURRENT (post-TetGen) volume node set
         sizes = _wall_size_map(g.points, wall_ids, hwall, hgrad, cap)
         _write_sol("/tmp/_mmgopt_in.sol", sizes)
-        cmd += ["-met", "/tmp/_mmgopt_in.sol"]
+        # HARD floor/ceiling: without -hmin the -nosurf grading pass can spawn sub-hwall
+        # interior slivers (min edge ~0.01 mm -> CFL blow-up, MB divergence). Floor at
+        # 0.5*hwall keeps the near-wall layer (~hwall) while collapsing the slivers.
+        cmd += ["-met", "/tmp/_mmgopt_in.sol", "-hmin", str(round(hwall * 0.5, 4)), "-hmax", str(cap)]
         print(f"[build_iso] near-wall size map: hwall={hwall:.3f} mm -> cap "
               f"{sizes.max():.3f} mm (hgrad<={hgrad}), {len(wall_ids)} wall nodes")
     elif rbm is not None:
@@ -369,7 +372,7 @@ def build(stl_ref, orig_surf_dir, out_dir, surf_hmax=0.5, rbm_n_across=None, hmi
         # sharp rims/ridges -> avoids tiny slivers (which degrade conditioning & mass conservation).
         subprocess.run(["mmgs_O3", "-in", "/tmp/_iso_ref.mesh", "-met", "/tmp/_iso_ref.sol",
                         "-hmin", str(hmin), "-hmax", str(hmax),
-                        "-hgrad", "1.3", "-hausd", "0.08", "-nr", "-out", "/tmp/_iso_surf.mesh"],
+                        "-hgrad", "1.3", "-hausd", "0.20", "-nr", "-out", "/tmp/_iso_surf.mesh"],
                        check=True, capture_output=True)
         mm = meshio.read("/tmp/_iso_surf.mesh")
         tri = mm.cells_dict["triangle"]
