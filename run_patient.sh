@@ -80,8 +80,13 @@ python3 "$REPO/tools/make_patient_xml.py" \
 # runs from the run dir -> stage the patient's flow file (from RCR_ARGS --flow) into FB/MB dirs.
 FLOW=$(printf '%s' "${RCR_ARGS:-}" | sed -n 's/.*--flow[ =]\+\([^ ]*\).*/\1/p')
 if [ -n "${FLOW:-}" ] && [ -f "$FLOW" ]; then
-  cp -f "$FLOW" "$FB_DIR/flow_rate.txt"; cp -f "$FLOW" "$MB_DIR/flow_rate.txt"
-  echo "  inlet flow staged -> flow_rate.txt in FB/MB run dirs ($(basename "$FLOW"))"
+  # SIGN + PERIOD: svMP imposes v = Q*profile*n_out -> an INLET needs Q < 0, and the Fourier period is
+  # t_last - t_first of the file. make_inlet_flow.py resamples the (positive, antegrade) MRI waveform
+  # over the whole run with the right sign; check_inlet_sign.py refuses a backwards run.
+  python3 "$REPO/tools/make_inlet_flow.py" "$FLOW" "$FB_DIR/flow_rate.txt" --t-cycle "$T_CYCLE" --nsteps "${NSTEPS:-1948}" ${INLET_FLOW_ARGS:-}
+  cp -f "$FB_DIR/flow_rate.txt" "$MB_DIR/flow_rate.txt"
+  python3 "$REPO/tools/check_inlet_sign.py" "$FB_DIR/flow_rate.txt" --t-cycle "$T_CYCLE" --nsteps "${NSTEPS:-1948}" || { echo "  ABORT: inlet flow file would run the aorta backwards"; exit 3; }
+  echo "  inlet flow staged -> flow_rate.txt in FB/MB run dirs (from $(basename "$FLOW"), sign/period verified)"
 else
   echo "  WARNING: no readable --flow file in RCR_ARGS -> svMP will fail to open flow_rate.txt"
 fi

@@ -138,11 +138,13 @@ def main():
     # sign so mean inflow > 0 and outflow sum > 0 (match physical convention)
     if Qin.mean() < 0: Qin = -Qin
     if Qout.mean() < 0: Qout = -Qout
-    # FIX 2026-07-05 (bug de signe) : les 2 flips independants ci-dessus decouplent le signe
-    # du flux net de la convention de dV/dt -> r valait -2*dV/dt (masque au cycle-moyen car
-    # int(dV/dt)~0 sur volume periodique ; visible seulement en instantane = 14.8%). Le residu
-    # physique correct = Qin - Qout + dVdt (verifie : 14.8% -> 0.48% PASS).
-    r = Qin - Qout + dVdt
+    # 2026-09-16 -- REVERTED the 2026-07-05 'sign fix' (r = Qin - Qout + dVdt). That formula only
+    # 'passed' because the production runs imposed the inlet flow with the WRONG SIGN (positive Q is
+    # an OUTFLOW in svMultiPhysics): blood entered through the outlets, so 'Qin' was really an
+    # outflow and the physical residual looked like -2*dV/dt. With a correctly signed inlet the
+    # physical balance is  Qin - Qout - dV/dt = 0  (a shrinking lumen EXPELS fluid). Prefer
+    # tools/closed_flux.py (instantaneous closed-surface sum, no dV/dt) as the primary probe.
+    r = Qin - Qout - dVdt
     print(f"\n{'step':>6} {'Qin_ALE':>9} {'Qout_ALE':>9} {'dV/dt':>9} {'r':>9} {'r/Qin%':>8}")
     print("-" * 60)
     for i in range(len(st)):

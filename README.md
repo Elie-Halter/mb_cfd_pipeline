@@ -64,12 +64,20 @@ python3 tools/compare_FB_MB.py --fb FB/4-procs wall.vtp <start> <end> --mb MB/4-
 python3 tools/make_figures.py  --wall-vtp cmp_*_FB_vs_MB_wall.vtp --out-dir figs/
 ```
 
+## 2b. Sign and period conventions (read this before any run)
+- **Inlet flow sign.** svMultiPhysics imposes a Dirichlet flow rate as `v = Q(t) * profile * n_out` (`set_bc.cpp::set_bc_dir_l`, outward nodal normal): a **positive Q is an OUTFLOW**. An inlet waveform must be **negative** (all bundled `tests/cases/fluid/*/lumen_inlet.flow` are). MRI waveforms are usually reported positive in the antegrade direction; copied as-is they run the aorta **backwards** (blood entering through the descending aorta and the branches) while the flow split, |Q| waveforms and correlation with MRI still look right. Tell-tale signs: negative outlet pressures, a 'pressure gauge offset', a mass balance that only closes with a flipped sign. `run_patient.sh` now builds the file with `tools/make_inlet_flow.py` and refuses to start if `tools/check_inlet_sign.py` finds a positive mean inflow. Verify on results with `tools/closed_flux.py` (the inlet flux must be negative at systole).
+- **Period of temporal files.** The solver's Fourier fit uses `t_last - t_first` of the file as the period (`fft.cpp`). A 30-point file ending at 0.616 s imposes T = 0.615 s. `make_inlet_flow.py` resamples the waveform at the solver time step over the whole run, so the period is exact.
+- **Moving-wall fluid BC.** On a prescribed-motion wall the FLUID `wall` BC must be `Prescribed_displacement` + `Impose_on_state_variable_integral` (fluid velocity = wall velocity), not `Dirichlet 0` (the wall would move without displacing any fluid: `Q_in = sum Q_out` despite `dV/dt != 0`). `MB_example.xml` does this.
+- **Cap pinning + taper.** Caps are pinned (`Dir 0` in the mesh equation); the prescribed wall displacement is tapered to zero over a geodesic distance of 12 mm from the cap rings (`morph/pin_caps.py`), otherwise the elements between a moving ring and a fixed cap invert (~20 ms into the cycle).
+- **Face windings.** Cap `.vtp` files from gmsh/TetGen may be wound inconsistently; the flux tools orient the outward normals geometrically (`tools/closed_flux.py`) or by cycle mean (`tools/mass_balance*.py`).
+
 ## 3. Expected results
 - **Valid mesh motion**: the morph advances the mesh through the full cycle with a positive
   Jacobian everywhere and **no remeshing / no interpolation** (verify with the per-step minimum
   scaled Jacobian and inverted-element count).
-- **Mass conservation** over the periodic cycle (cycle-mean inflow = outflow); this is a required
-  check and selects the mesh (a well-conditioned near-wall mesh is needed under motion).
+- **Mass conservation**: the instantaneous closed-surface flux sum (`tools/closed_flux.py`, P1-exact on the
+  deformed geometry) is ~0 at every saved step (< 0.01 % of the peak inflow on our runs); the cycle-mean
+  inflow equals the outflow. This is a required check and selects the mesh.
 - **Flow split** matching the 4D-flow MRI target within a few percent per outlet, with the cardiac
   output (outlet sum) consistent with the prescribed inlet.
 - **Wall hemodynamics**: `tools/hemo_indices.py` outputs a wall VTP with TAWSS / OSI / helicity;
