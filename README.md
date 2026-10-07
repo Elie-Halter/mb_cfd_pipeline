@@ -1,148 +1,81 @@
-# MB-CFD — all-tetrahedral moving-boundary aortic hemodynamics
+# mb_cfd_pipeline
 
-**An open-source pipeline for patient-specific moving-boundary (MB) vs fixed-boundary (FB) CFD of the thoracic aorta, driven by multi-phase 4D-flow segmentations.**
+Patient-specific moving-boundary (MB) versus rigid-wall (FB) CFD of the thoracic aorta, driven by
+multi-phase 4D-flow MRI segmentations.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Solver: svMultiPhysics](https://img.shields.io/badge/solver-svMultiPhysics-blue.svg)](https://github.com/SimVascular/svMultiPhysics)
-[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
 
-A free alternative for cardiac-cycle wall motion, built on
-**svMultiPhysics + SimVascular / MMG / TetGen**. Because the solver reads a single element type,
-the whole pipeline is **100 % tetrahedral** (no prismatic boundary layer).
+Built on [svMultiPhysics](https://github.com/SimVascular/svMultiPhysics) and the
+[SimVascular](https://simvascular.github.io/) ecosystem. The solver reads a single element type, so
+the mesh is all-tetrahedral — there is no prismatic boundary layer.
 
-> **Status:** research code, validated for valid mesh motion on a pilot patient. Patient data are
-> **not** distributed with this repository (see [Patient data](#patient-data--ethics)).
+Wall motion is **prescribed, not solved**: every node position is computed offline and handed to the
+solver, so a run involves no mesh-motion PDE, no remeshing and no solution interpolation. Three
+stages:
 
----
+1. Non-rigid registration of the reference surface onto each phase (N-ICP + normal shooting) — a
+   fold-free, iso-topological boundary correspondence.
+2. Rest-shape variational volume morph (Escobar mean-ratio energy with a positive-Jacobian barrier) —
+   the interior follows the wall and every element stays valid.
+3. Whole-domain prescription in the solver's `EXTENDED` format.
 
-## 1. What it does
-Given a thoracic-aorta lumen segmented at several phases of the cardiac cycle (from 4D-flow MRI),
-the pipeline computes the blood-flow field and the wall hemodynamic indices (TAWSS, OSI, helicity,
-outlet flow split) for two wall models — **fixed (rigid)** and **moving** — and compares them.
+## Install
 
-The hard part of moving-boundary CFD is advancing an all-tetrahedral mesh through a large cyclic
-wall motion while keeping every element valid **and** preserving the near-wall gradient. We avoid
-the usual failures (mesh-motion PDEs invert elements; remeshing smears the solution) with a
-**fold-free prescribed morph**, computed offline:
+Ubuntu 22.04 / 24.04:
 
-1. **Non-rigid registration** of the reference surface onto each phase (N-ICP + *normal shooting*) →
-   a fold-free, iso-topological boundary correspondence.
-2. **Rest-shape variational volume morph** (regularised Escobar mean-ratio energy with a
-   positive-Jacobian barrier) → the near-wall band follows the wall quasi-rigidly, no remeshing.
-3. **Total prescription**: every node position is handed to the solver (`EXTENDED` format), so the
-   moving-domain solve runs with **no mesh-motion PDE, no remeshing, no solution interpolation**.
-
-## 2. How to run it
-
-### Install (Ubuntu 22.04 / 24.04)
 ```bash
 git clone https://github.com/Elie-Halter/mb_cfd_pipeline.git && cd mb_cfd_pipeline
-bash install.sh && source ~/.bashrc && bash check_install.sh   # MMG (USE_ELAS) + svMultiPhysics + 15 patches + Python
-sudo apt install -y libpetsc-real-dev                          # PETSc/GAMG, required for the moving-boundary mesh equation
+bash install.sh && source ~/.bashrc && bash check_install.sh
+sudo apt install -y libpetsc-real-dev
 ```
-> **GAMG is required** for the mesh-motion equation: it is set via
-> `PETSC_OPTIONS="-pc_type gamg -pc_gamg_type agg"`, which `run_MB_aniso.sh` exports for you.
-> (Plain `petsc-jacobi` blows up on the fine near-wall mesh.)
 
-### Run a patient (end to end)
+`install.sh` builds MMG, applies the fifteen solver patches and installs the Python requirements
+(Python 3.10+); `check_install.sh` verifies the result. PETSc is required: the mesh-motion equation needs GAMG, which
+`run_MB_aniso.sh` exports for you.
+
+## Run
+
 ```bash
-cp patients/TEMPLATE.env patients/P0001.env     # fill in: phase STLs, MRI flow split, paths
+cp patients/TEMPLATE.env patients/P0001.env   # phase STLs, MRI flow split, paths
 bash run_patient.sh patients/P0001.env
 ```
-This chains: reference mesh → fold-free morph → RCR calibration → FB run → MB run →
-post-processing → FB-vs-MB comparison. Two gates halt the run if the registration folds (G1) or the
-flow split deviates from MRI (G2). The only non-coded input is the **segmented phase STLs**.
 
-### Run individual stages
-```bash
-# 1) offline morph -> EXTENDED displacement file
-python3 morph/pipeline.py --mesh ref.vtu --out work --phase 0.40:A.stl --phase 0.60:B.stl ...
-# 2) moving-boundary run (GAMG handled by the wrapper)
-bash run_MB_aniso.sh <patient>_MB.xml
-# 3) fixed- vs moving-boundary comparison
-python3 tools/compare_FB_MB.py --fb FB/4-procs wall.vtp <start> <end> --mb MB/4-procs wall.vtp <start> <end>
-python3 tools/make_figures.py  --wall-vtp cmp_*_FB_vs_MB_wall.vtp --out-dir figs/
-```
+This chains reference mesh → morph → RCR calibration → FB run → MB run → post-processing → FB/MB
+comparison. Two gates stop the run: G1 if the registration folds, G2 if the outlet flow split
+deviates from MRI. The only input that is not code is the set of segmented phase STLs.
 
-## 2b. Sign and period conventions (read this before any run)
-- **Inlet flow sign.** svMultiPhysics imposes a Dirichlet flow rate as `v = Q(t) * profile * n_out` (`set_bc.cpp::set_bc_dir_l`, outward nodal normal): a **positive Q is an OUTFLOW**. An inlet waveform must be **negative** (all bundled `tests/cases/fluid/*/lumen_inlet.flow` are). MRI waveforms are usually reported positive in the antegrade direction; copied as-is they run the aorta **backwards** (blood entering through the descending aorta and the branches) while the flow split, |Q| waveforms and correlation with MRI still look right. Tell-tale signs: negative outlet pressures, a 'pressure gauge offset', a mass balance that only closes with a flipped sign. `run_patient.sh` now builds the file with `tools/make_inlet_flow.py` and refuses to start if `tools/check_inlet_sign.py` finds a positive mean inflow. Verify on results with `tools/closed_flux.py` (the inlet flux must be negative at systole).
-- **Period of temporal files.** The solver's Fourier fit uses `t_last - t_first` of the file as the period (`fft.cpp`). A 30-point file ending at 0.616 s imposes T = 0.615 s. `make_inlet_flow.py` resamples the waveform at the solver time step over the whole run, so the period is exact.
-- **Moving-wall fluid BC.** On a prescribed-motion wall the FLUID `wall` BC must be `Prescribed_displacement` + `Impose_on_state_variable_integral` (fluid velocity = wall velocity), not `Dirichlet 0` (the wall would move without displacing any fluid: `Q_in = sum Q_out` despite `dV/dt != 0`). `MB_example.xml` does this.
-- **Cap pinning + taper.** Caps are pinned (`Dir 0` in the mesh equation); the prescribed wall displacement is tapered to zero over a geodesic distance of 12 mm from the cap rings (`morph/pin_caps.py`), otherwise the elements between a moving ring and a fixed cap invert (~20 ms into the cycle).
-- **Face windings.** Cap `.vtp` files from gmsh/TetGen may be wound inconsistently; the flux tools orient the outward normals geometrically (`tools/closed_flux.py`) or by cycle mean (`tools/mass_balance*.py`).
+Individual stages are in [REPRODUCE.md](REPRODUCE.md).
 
-## 3. Expected results
-- **Valid mesh motion**: the morph advances the mesh through the full cycle with a positive
-  Jacobian everywhere and **no remeshing / no interpolation** (verify with the per-step minimum
-  scaled Jacobian and inverted-element count).
-- **Mass conservation**: the instantaneous closed-surface flux sum (`tools/closed_flux.py`, P1-exact on the
-  deformed geometry) is ~0 at every saved step (< 0.01 % of the peak inflow on our runs); the cycle-mean
-  inflow equals the outflow. This is a required check and selects the mesh.
-- **Flow split** matching the 4D-flow MRI target within a few percent per outlet, with the cardiac
-  output (outlet sum) consistent with the prescribed inlet.
-- **Wall hemodynamics**: `tools/hemo_indices.py` outputs a wall VTP with TAWSS / OSI / helicity;
-  `tools/compare_FB_MB.py` outputs the FB, MB and difference maps (open in ParaView), plus summary
-  statistics; `tools/gci.py` reports the grid-convergence index across three meshes.
+## Before your first run
 
-## 4. Repository layout
-```
-mb_cfd_pipeline/
-├── morph/             fold-free prescribed-morph engine (the method) — see morph/README.md
-│   ├── pipeline.py        phase STLs + mesh  ->  EXTENDED displacement file
-│   ├── register.py        fold-free non-rigid registration (normal shooting)
-│   └── morph_volume.py    rest-shape volume morph (J>0 barrier)
-├── tools/             setup & post-processing — see tools/README.md
-│   ├── build_iso_mesh.py · calibrate_rcr.py · make_patient_xml.py
-│   ├── extract_flowsplit_FB.py · hemo_indices.py · compare_FB_MB.py · make_figures.py · gci.py
-├── patches/svMP/      15 patches on svMultiPhysics @97ef512 (key: Prescribed_displacement EXTENDED)
-├── patients/TEMPLATE.env       per-patient input config (copy & fill in)
-├── run_patient.sh · run_MB_aniso.sh
-├── FB_example.xml · MB_example.xml          example svMP solver inputs
-└── install.sh · check_install.sh · requirements.txt
-```
+svMultiPhysics has a few conventions that silently produce plausible-looking but wrong results if you
+get them wrong — the sign of the inlet flow rate, the period of temporal files, the fluid boundary
+condition on a prescribed-motion wall, and cap pinning. They are in
+[CONVENTIONS.md](CONVENTIONS.md), together with the checks that tell you a run is sound.
+Read it once.
 
-## Updating / Contributing
-Get the latest version (after changes have been pushed):
-```bash
-git pull
+## Layout
+
 ```
-Publish your own changes (requires write access to the repository):
-```bash
-git add -u
-git commit -m "describe your change"
-git push
+morph/     prescribed-morph engine (the method) — see morph/README.md
+tools/     meshing, RCR calibration, post-processing, FB/MB comparison — see tools/README.md
+patches/   fifteen patches on svMultiPhysics @97ef512 — see patches/svMP/README.md
+tests/     synthetic tests, no patient data required
 ```
-Simulation outputs and patient data are git-ignored, so local runs never conflict and are
-never pushed. Collaborators can be granted write access under **Settings → Collaborators**;
-others can fork and open a pull request. Please use **normal commits only** (no history
-rewriting / force-push) so everyone can `git pull` cleanly.
 
 ## Patient data
-This repository contains **source code only**. Any patient-derived data (segmentations, meshes,
-displacement fields, results) are **never** versioned (`.gitignore`) and are not provided here.
 
-## Built on / references
-This pipeline builds on the following open-source software and methods:
-
-- **svMultiPhysics** — open-source parallel finite-element multi-physics solver. https://github.com/SimVascular/svMultiPhysics
-- **SimVascular** — cardiovascular modelling suite. https://simvascular.github.io/
-- **MMG** (Dapogny, Dobrzynski, Frey) — anisotropic remeshing. https://www.mmgtools.org/
-- **TetGen** (Si, 2015, *ACM Trans. Math. Softw.*) — quality tetrahedral mesh generation.
-- **PETSc** (Balay et al.) — linear algebra / GAMG algebraic multigrid. https://petsc.org/
-- **Escobar et al. (2003), *CMAME*** — regularised mean-ratio energy for simultaneous untangling and
-  smoothing (basis of the rest-shape volume morph).
-- **Roache (1994), *J. Fluids Eng.*; Celik et al. (2008), *J. Fluids Eng.*** — Grid Convergence Index.
-- Prescribed iso-topological morph for image-based moving-domain CFD (registration → volume morph →
-  prescription) follows the established moving-boundary methodology for cyclic vascular geometries.
+Source code only. Segmentations, meshes, displacement fields and results are git-ignored and are not
+distributed here.
 
 ## Citation
-If you use this software, please cite it via [`CITATION.cff`](CITATION.cff)
-*(journal reference to be added on publication).*
+
+See [CITATION.cff](CITATION.cff). Journal reference to be added on publication.
 
 ## License
-[MIT](LICENSE) for the source code. Third-party dependencies (above) retain their own licenses.
 
-## Acknowledgements
-Developed by **Elie Halter** (halter.elie@gmail.com) as part of a cardiovascular-CFD research
-project supervised by **Dr. Monika Colombo**, Aarhus University, Dept. of Mechanical and
-Production Engineering.
+MIT, see [LICENSE](LICENSE). Dependencies — svMultiPhysics, SimVascular, MMG, TetGen, PETSc — keep
+their own.
+
+Developed by Elie Halter, supervised by Dr Monika Colombo, Aarhus University, Department of
+Mechanical and Production Engineering.
