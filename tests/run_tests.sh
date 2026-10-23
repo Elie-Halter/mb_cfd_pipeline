@@ -8,7 +8,7 @@ cd "$HERE/.."
 
 FILT='WARN|PyVistaFutureWarning|will change|silence|^  b = |^  sub = |degenerate|^$'
 fail=0
-for t in tests/test_imports.py tests/test_postproc.py tests/test_meshing.py; do
+for t in tests/test_imports.py tests/test_postproc.py tests/test_meshing.py tests/test_benchmarks.py; do
     echo "### $t"
     python3 "$t" 2>&1 | grep -vE "$FILT"
     [ "${PIPESTATUS[0]}" -ne 0 ] && fail=1

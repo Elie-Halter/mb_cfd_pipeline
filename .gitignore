@@ -91,3 +91,6 @@ original_mesh/
 patches/svMP/_old_*/
 tools/make_pubfigures.py
 /original_mesh
+
+# --- generated benchmark cases and runs (benchmarks/run_all.sh) ---
+benchmarks/_out/
