@@ -9,15 +9,22 @@ Built on [svMultiPhysics](https://github.com/SimVascular/svMultiPhysics) and the
 [SimVascular](https://simvascular.github.io/) ecosystem. The solver reads a single element type, so
 the mesh is all-tetrahedral — there is no prismatic boundary layer.
 
-Wall motion is **prescribed, not solved**: every node position is computed offline and handed to the
-solver, so a run involves no mesh-motion PDE, no remeshing and no solution interpolation. Three
-stages:
+The **wall** motion is prescribed from the images; the **interior** of the volume mesh is moved by the
+solver's mesh equation (incremental linear elasticity) at every time step, on a fixed all-tetrahedral
+mesh — no remeshing and no solution interpolation. Main stages:
 
-1. Non-rigid registration of the reference surface onto each phase (N-ICP + normal shooting) — a
-   fold-free, iso-topological boundary correspondence.
-2. Rest-shape variational volume morph (Escobar mean-ratio energy with a positive-Jacobian barrier) —
-   the interior follows the wall and every element stays valid.
-3. Whole-domain prescription in the solver's `EXTENDED` format.
+1. Wall trajectory over the cycle: non-rigid registration of a reference surface onto each segmented
+   phase (N-ICP + normal shooting, fold-free and iso-topological), or propagation of one segmented
+   phase by image registration; periodic shape-preserving interpolation in time.
+2. Cap taper: the caps are held fixed and the motion is faded in over 12 mm along the wall
+   (smoothstep), with the taper length checked offline by counting inverted elements.
+3. Solver run with the wall imposed through `Prescribed_displacement` (STANDARD mode), the interior
+   moved by the mesh equation, and the fluid assembled on the deformed geometry (discrete geometric
+   conservation law fix, patch 0014).
+
+An offline rest-shape variational morph (Escobar mean-ratio energy with a positive-Jacobian barrier,
+`morph/`) is kept as a validity check that the imposed wall admits a valid interior mesh; the
+production runs take only the wall positions from the displacement file.
 
 ## Install
 
@@ -70,7 +77,8 @@ distributed here.
 
 ## Citation
 
-See [CITATION.cff](CITATION.cff). Journal reference to be added on publication.
+See [CITATION.cff](CITATION.cff). Companion paper: *Moving versus rigid wall in aortic CFD: diastolic
+flow in a healthy and a Turner-syndrome aorta* (in preparation); journal reference to be added on publication.
 
 ## License
 
