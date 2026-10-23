@@ -77,7 +77,7 @@ Companion paper: *Moving versus rigid wall in aortic CFD: diastolic flow in heal
 
 **From this repository alone:**
 
-- the analytic verification benchmarks (Supplementary Table S3): `bash benchmarks/run_all.sh`
+- the analytic verification benchmarks (Supplementary Section S1, Table S3): `bash benchmarks/run_all.sh`
   generates every synthetic mesh, motion and boundary file, runs the patched solver and prints
   the verdicts (`--no-solver` for the generation and pre-flight checks only, `--full` for the
   temporal-order and refinement studies). The analysis scripts reproduce the values below from
