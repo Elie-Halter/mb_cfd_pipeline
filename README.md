@@ -71,6 +71,44 @@ bash benchmarks/run_all.sh --no-solver       # generate the analytic benchmarks 
 bash benchmarks/run_all.sh                   # run them with the patched solver (~2-3 h on 4 cores)
 ```
 
+## Reproducing the paper
+
+Companion paper: *Moving versus rigid wall in aortic CFD: diastolic flow in healthy and Turner-syndrome aortas* (in preparation).
+
+**From this repository alone:**
+
+- the analytic verification benchmarks (Supplementary Table S3): `bash benchmarks/run_all.sh`
+  generates every synthetic mesh, motion and boundary file, runs the patched solver and prints
+  the verdicts (`--no-solver` for the generation and pre-flight checks only, `--full` for the
+  temporal-order and refinement studies). The analysis scripts reproduce the values below from
+  the runs; `benchmarks/build_nogcl.sh` builds the contrast solver without patch 0014;
+- the solver itself: svMultiPhysics at the pinned commit plus the fifteen patches
+  (`install.sh`), and the production solver inputs (`MB_example.xml`, `FB_example.xml`);
+- every tool of the method and of the analysis (`morph/`, `chain_image/`, `tools/`), exercised
+  on synthetic cases by `bash tests/run_tests.sh`.
+
+**Needs the patient data, which are not released:** the two patient cases — 4D-flow MRI,
+segmentations, meshes, wall-motion files, inflow waveforms and outlet flow splits — and therefore
+every patient result, figure and table of the paper. With equivalent data of your own,
+`run_patient.sh` runs the same chain in the production configuration
+(`bash run_patient.sh --dry-run patients/<case>.env` shows every step first), and
+[REPRODUCE.md](REPRODUCE.md) gives each stage by hand.
+
+## Verification
+
+Synthetic analytic benchmarks, 4 MPI ranks, solver built by `install.sh` (details, pass criteria
+and grids in [benchmarks/README.md](benchmarks/README.md)):
+
+| Case | Quantity | Pass criterion | Result |
+|---|---|---|---|
+| B1 free stream on a moving mesh | max\|u−U\|/U | < 1e−4 | 1.69e−6 (same without patch 0014) |
+| B2 expanding tube | moving no-slip error | < 1e−4 cm/s | 2.68e−6 cm/s |
+| B2 expanding tube | induced flow vs −dV/dt | < 2 % | 1.64 % |
+| B2 expanding tube | discrete mass balance (DGCL) | < 2 % | **3.3e−6** (6.66e−2 without patch 0014) |
+| B2t (`--full`) | temporal order of the mass residual | p ≥ 2 | 2.88, then 3.85 |
+| B3 Womersley, α ≈ 12.9 | flow amplitude, phase (grid g1) | ±5 %, < 5° | 0.978, +2.6° |
+| B3r (`--full`) | core L2 profile error, g1 → g2 → g3 | decreases monotonically | 28.2 % → 15.7 % → 11.3 % |
+
 ## Before your first run
 
 svMultiPhysics has a few conventions that silently produce plausible-looking but wrong results if you
@@ -102,8 +140,8 @@ are not distributed here. The benchmarks generate their own synthetic meshes.
 
 ## Citation
 
-See [CITATION.cff](CITATION.cff). Companion paper: *Moving versus rigid wall in aortic CFD: diastolic
-flow in a healthy and a Turner-syndrome aorta* (in preparation); journal reference to be added on publication.
+See [CITATION.cff](CITATION.cff) and [CHANGELOG.md](CHANGELOG.md). Companion paper: *Moving versus rigid wall in aortic CFD: diastolic flow in healthy and Turner-syndrome aortas*
+(in preparation); journal reference to be added on publication.
 
 ## License
 
