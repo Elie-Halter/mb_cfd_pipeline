@@ -26,7 +26,6 @@ keywords:
 license: MIT
 repository-code: "https://github.com/Elie-Halter/mb_cfd_pipeline"
 version: "0.3.0"
-date-released: "2026-10-23"
 preferred-citation:
   type: article
   title: "Moving versus rigid wall in aortic CFD: diastolic flow in healthy and Turner-syndrome aortas"

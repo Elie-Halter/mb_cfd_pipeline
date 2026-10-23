@@ -3,7 +3,7 @@
 Three benchmarks with analytic solutions that exercise the patched solver on synthetic
 geometries. They need **no patient data**: every mesh, motion, boundary condition and initial
 condition is generated from the parameters in each `params.py`. They are the verification
-benchmarks of Supplementary S1 of the companion paper.
+benchmarks of Supplementary Section S1 (Table S3) of the companion paper.
 
 | Case | Verifies | Analytic solution | Pass criterion | Reference result (patched) |
 |---|---|---|---|---|
