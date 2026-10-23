@@ -71,6 +71,28 @@ def main():
             ok = False; out += str(e)
     check("make_patient_xml.py (derive XML)", ok, out[-300:])
 
+    # 7. extended_to_standard -> STANDARD wall-only file from an EXTENDED morph file
+    import numpy as np
+    import pyvista as pv
+    P = np.asarray(g.points); n = len(P); gidv = np.arange(1, n + 1)
+    ext = tmp + "/disp_ext.txt"
+    with open(ext, "w") as f:
+        f.write(f"{n} 3\nEXTENDED\n")
+        np.savetxt(f, gidv, fmt="%d")
+        for k, t in enumerate([0.0, 0.5, 1.0]):
+            f.write(f"{t:.6f}\n")
+            np.savetxt(f, np.column_stack([gidv, (P * (1 + 0.01 * (k % 2))) * 0.1]), fmt="%d %.6f %.6f %.6f")
+    rc, out = run(["tools/extended_to_standard.py", ext, tmp + "/disp_wall.txt", "--face", wall])
+    ok = rc == 0
+    if ok:
+        toks = open(tmp + "/disp_wall.txt").read().split()
+        wg = np.asarray(pv.read(wall).point_data["GlobalNodeID"]).astype(int)
+        nn, nt = int(toks[0]), int(toks[1])
+        blk = np.asarray(toks[2:], float).reshape(nt, 1 + 4 * nn)
+        ok = (nn == len(wg) and nt == 3 and set(blk[1, 1:].reshape(nn, 4)[:, 0].astype(int)) == set(wg)
+              and np.allclose(blk[:, 0], [0, 0.5, 1]))
+    check("extended_to_standard.py (EXTENDED -> wall-only STANDARD)", ok, out[-300:])
+
     npass = sum(1 for _, ok, _ in checks if ok)
     print(f"\n=== post-processing: {npass}/{len(checks)} PASS ===")
     return 0 if npass == len(checks) else 1

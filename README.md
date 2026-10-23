@@ -13,14 +13,20 @@ The **wall** motion is prescribed from the images; the **interior** of the volum
 solver's mesh equation (incremental linear elasticity) at every time step, on a fixed all-tetrahedral
 mesh — no remeshing and no solution interpolation. Main stages:
 
-1. Wall trajectory over the cycle: non-rigid registration of a reference surface onto each segmented
-   phase (N-ICP + normal shooting, fold-free and iso-topological), or propagation of one segmented
-   phase by image registration; periodic shape-preserving interpolation in time.
+1. Wall trajectory over the cycle, by one of two chains: non-rigid registration of a reference
+   surface onto each of several segmented phases (N-ICP + normal shooting, fold-free and
+   iso-topological; `morph/`), or propagation of a single segmented phase to every phase by
+   inverted B-spline image registration (`chain_image/`); periodic shape-preserving (PCHIP)
+   interpolation in time.
 2. Cap taper: the caps are held fixed and the motion is faded in over 12 mm along the wall
    (smoothstep), with the taper length checked offline by counting inverted elements.
 3. Solver run with the wall imposed through `Prescribed_displacement` (STANDARD mode), the interior
    moved by the mesh equation, and the fluid assembled on the deformed geometry (discrete geometric
    conservation law fix, patch 0014).
+
+The solver changes are verified on synthetic analytic benchmarks that need no patient data
+(`benchmarks/`): free-stream preservation, an analytically expanding tube (moving no-slip and the
+discrete mass balance with and without patch 0014) and Womersley flow.
 
 An offline rest-shape variational morph (Escobar mean-ratio energy with a positive-Jacobian barrier,
 `morph/`) is kept as a validity check that the imposed wall admits a valid interior mesh; the
@@ -51,7 +57,15 @@ This chains reference mesh → morph → RCR calibration → FB run → MB run �
 comparison. Two gates stop the run: G1 if the registration folds, G2 if the outlet flow split
 deviates from MRI. The only input that is not code is the set of segmented phase STLs.
 
-Individual stages are in [REPRODUCE.md](REPRODUCE.md).
+Individual stages, the second wall chain and the benchmarks are in [REPRODUCE.md](REPRODUCE.md).
+
+## Verify an installation
+
+```bash
+bash tests/run_tests.sh                      # no solver, no data: every tool on synthetic cases
+bash benchmarks/run_all.sh --no-solver       # generate the analytic benchmarks + pre-flight checks
+bash benchmarks/run_all.sh                   # run them with the patched solver (~2-3 h on 4 cores)
+```
 
 ## Before your first run
 
@@ -64,16 +78,23 @@ Read it once.
 ## Layout
 
 ```
-morph/     prescribed-morph engine (the method) — see morph/README.md
-tools/     meshing, RCR calibration, post-processing, FB/MB comparison — see tools/README.md
-patches/   fifteen patches on svMultiPhysics @97ef512 — see patches/svMP/README.md
-tests/     synthetic tests, no patient data required
+morph/        wall chain 1: surface registration onto several segmented phases, cap pinning,
+              offline rest-shape morph (validity check) — see morph/README.md
+chain_image/  wall chain 2: one segmented phase propagated by inverted image registration,
+              smoothing, cap taper, displacement file — see chain_image/README.md
+tools/        meshing, inflow file, RCR calibration, wall-motion utilities, mass checks,
+              post-processing, FB/MB comparison — see tools/README.md
+benchmarks/   synthetic analytic benchmarks (free stream, expanding tube / DGCL, Womersley)
+              — see benchmarks/README.md
+patches/      fifteen patches on svMultiPhysics @97ef512 — see patches/svMP/README.md
+tests/        synthetic tests, no patient data and no solver required
+patients/     per-patient configuration template for run_patient.sh
 ```
 
 ## Patient data
 
-Source code only. Segmentations, meshes, displacement fields and results are git-ignored and are not
-distributed here.
+Source code only. Images, segmentations, meshes, displacement fields and results are git-ignored and
+are not distributed here. The benchmarks generate their own synthetic meshes.
 
 ## Citation
 
