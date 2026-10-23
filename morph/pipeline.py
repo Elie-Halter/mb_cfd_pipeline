@@ -5,6 +5,11 @@ Multi-instance PIPELINE: N phase surfaces (STL) + 1 reference tetrahedral volume
     python3 morph/pipeline.py --mesh ref.vtu --out outdir \
         --phase 0.40:phase_A.stl --phase 0.60:phase_B.stl --phase 0.95:phase_C.stl \
         [--n-samples 32] [--maxiter 80] [--t-cycle 0.974] [--scale 0.1] [--no-smooth]
+        [--register-only]
+
+--register-only stops after stage 1. run_patient.sh uses it: the production wall motion
+(caps pinned, 12 mm taper) is then built from the registration by morph/run_pinned_morph.py,
+and tools/extended_to_standard.py keeps its wall positions only.
 
 Assumptions: the reference mesh corresponds to phase t=0 of the cycle; phase t given as a
 cycle fraction in (0,1); STL closed (wall + caps). The vtu mesh must carry GlobalNodeID
@@ -168,6 +173,9 @@ def main():
     ap.add_argument("--t-cycle", type=float, default=0.974)
     ap.add_argument("--scale", type=float, default=0.1, help="mesh unit -> solver unit")
     ap.add_argument("--no-smooth", action="store_true")
+    ap.add_argument("--register-only", action="store_true",
+                    help="stop after stage 1 (reg_*.npy); the production wall motion is then "
+                         "built by morph/run_pinned_morph.py from these files")
     a = ap.parse_args()
     os.makedirs(a.out, exist_ok=True)
     phases = []
@@ -176,6 +184,9 @@ def main():
         phases.append((float(t), path))
 
     X0, vid, tri = stage_register(a.mesh, phases, a.out)
+    if a.register_only:
+        print(f"[register-only] registration written to {a.out}/reg_*.npy")
+        return
     stage_morph(a.mesh, phases, a.out, X0, vid, tri, a.n_samples, a.maxiter, not a.no_smooth)
     check_write_any.main(a.mesh, f"{a.out}/snap", a.n_samples,
                          f"{a.out}/displacement_all_nodes.txt", a.t_cycle, a.scale)
