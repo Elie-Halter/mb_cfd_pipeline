@@ -25,6 +25,18 @@ keywords:
   - mesh morphing
 license: MIT
 repository-code: "https://github.com/Elie-Halter/mb_cfd_pipeline"
-version: "0.2.0"
+version: "0.3.0"
 date-released: "2026-10-23"
-# TODO: add the companion paper reference (preferred-citation) upon publication.
+preferred-citation:
+  type: article
+  title: "Moving versus rigid wall in aortic CFD: diastolic flow in healthy and Turner-syndrome aortas"
+  authors:
+    - family-names: Halter
+      given-names: Elie
+    - family-names: Colombo
+      given-names: Monika
+      affiliation: "Aarhus University, Department of Mechanical and Production Engineering"
+  status: in-preparation
+  journal: "TBD"
+  year: 2026
+  repository-code: "https://github.com/Elie-Halter/mb_cfd_pipeline"
