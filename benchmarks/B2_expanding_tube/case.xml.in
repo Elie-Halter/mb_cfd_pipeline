@@ -1,0 +1,129 @@
+<svMultiPhysicsFile version="1.0">
+
+<!-- ============================================================
+  B2 - ANALYTICALLY EXPANDING TUBE (moving boundary + no-slip + mass), template filled in
+  by benchmarks/run_all.sh (@CASE@ = directory written by gen_case.py; time step, step count
+  and output increments per time-step variant, see params.variant).
+  R(t) = R0 s(t), s = 1 + 0.05 (1 - cos 2 pi t), R0 = 1 cm, L = 5 cm, T = 1 s, 1.5 periods.
+  Wall AND caps prescribed (one global displacement file, absolute positions in cm); the
+  planar caps dilate in their plane. Fluid: moving no-slip on the wall
+  (Prescribed_displacement + Impose_on_state_variable_integral, the production code path);
+  z0/z1 Neumann p = 0. Starts from rest (zero initial wall velocity by construction).
+  Analytic: Q_z0 + Q_z1 = -dV/dt = -2 pi R L dR/dt; u_r(R) = dR/dt.
+============================================================ -->
+
+<GeneralSimulationParameters>
+  <Number_of_spatial_dimensions> 3 </Number_of_spatial_dimensions>
+  <Number_of_time_steps> @NSTEPS@ </Number_of_time_steps>   <!-- 1.5 periods -->
+  <Time_step_size> @DT@ </Time_step_size>
+  <Restart_file_name> results </Restart_file_name>
+  <Increment_in_saving_restart_files> @RESTART_INC@ </Increment_in_saving_restart_files>
+  <Start_saving_after_time_step> 1 </Start_saving_after_time_step>
+  <Continue_previous_simulation> false </Continue_previous_simulation>
+  <Save_averaged_results> false </Save_averaged_results>
+  <Save_results_to_VTK_format> true </Save_results_to_VTK_format>
+  <Name_prefix_of_saved_VTK_files> results </Name_prefix_of_saved_VTK_files>
+  <Increment_in_saving_VTK_files> @VTK_INC@ </Increment_in_saving_VTK_files>  <!-- 60 snapshots -->
+  <Spectral_radius_of_infinite_time_step> 0.2 </Spectral_radius_of_infinite_time_step>
+  <Searched_file_name_to_trigger_stop> STOP_SIM </Searched_file_name_to_trigger_stop>
+  <Verbose> true </Verbose>
+  <Warning> true </Warning>
+  <Debug> false </Debug>
+</GeneralSimulationParameters>
+
+<Add_mesh name="tube">
+  <Mesh_file_path> @CASE@/mesh/mesh-complete.mesh.vtu </Mesh_file_path>
+  <Mesh_scale_factor> 0.1 </Mesh_scale_factor>   <!-- mm -> cm (pipeline convention) -->
+  <Add_face name="wall">
+    <Face_file_path> @CASE@/mesh/mesh-surfaces/wall.vtp </Face_file_path>
+  </Add_face>
+  <Add_face name="z0">
+    <Face_file_path> @CASE@/mesh/mesh-surfaces/z0.vtp </Face_file_path>
+  </Add_face>
+  <Add_face name="z1">
+    <Face_file_path> @CASE@/mesh/mesh-surfaces/z1.vtp </Face_file_path>
+  </Add_face>
+</Add_mesh>
+
+<Add_equation type="fluid">
+  <Coupled> true </Coupled>
+  <Min_iterations> 1 </Min_iterations>
+  <Max_iterations> 15 </Max_iterations>
+  <Tolerance> 1e-3 </Tolerance>
+
+  <Backflow_stabilization_coefficient> 1.0 </Backflow_stabilization_coefficient>
+  <Density> 1.06 </Density>
+  <Viscosity model="Constant">
+    <Value> 0.04 </Value>
+  </Viscosity>
+  <LS type="NS">
+    <Max_iterations> 200 </Max_iterations>
+    <Tolerance> 5e-3 </Tolerance>
+    <Krylov_space_dimension> 200 </Krylov_space_dimension>
+    <NS_GM_max_iterations> 6 </NS_GM_max_iterations>
+    <NS_GM_tolerance> 1e-2 </NS_GM_tolerance>
+    <NS_CG_max_iterations> 400 </NS_CG_max_iterations>
+    <NS_CG_tolerance> 1e-2 </NS_CG_tolerance>
+    <Linear_algebra type="fsils">
+      <Preconditioner> fsils </Preconditioner>
+    </Linear_algebra>
+  </LS>
+  <Output type="Spatial">
+    <Velocity> true </Velocity>
+    <Pressure> true </Pressure>
+  </Output>
+
+  <!-- MOVING no-slip: fluid velocity = prescribed mesh velocity (production code path) -->
+  <Add_BC name="wall">
+    <Type> Prescribed_displacement </Type>
+    <Prescribed_displacement_file_path> @CASE@/displacement_boundary.txt </Prescribed_displacement_file_path>
+    <Impose_on_state_variable_integral> true </Impose_on_state_variable_integral>
+  </Add_BC>
+  <!-- open caps, p = 0; fluid ENTERS during expansion -> backflow stabilisation 1.0 -->
+  <Add_BC name="z0">
+    <Type> Neumann </Type>
+    <Time_dependence> Steady </Time_dependence>
+    <Value> 0.0 </Value>
+  </Add_BC>
+  <Add_BC name="z1">
+    <Type> Neumann </Type>
+    <Time_dependence> Steady </Time_dependence>
+    <Value> 0.0 </Value>
+  </Add_BC>
+</Add_equation>
+
+<Add_equation type="mesh">
+  <Mesh_stiffness_exponent> 2.0 </Mesh_stiffness_exponent>
+
+  <Coupled> true </Coupled>
+  <Min_iterations> 1 </Min_iterations>
+  <Max_iterations> 1 </Max_iterations>
+  <Tolerance> 0.1 </Tolerance>
+  <Poisson_ratio> 0.30 </Poisson_ratio>
+  <LS type="GMRES">
+    <Max_iterations> 500 </Max_iterations>
+    <Tolerance> 5e-3 </Tolerance>
+    <Krylov_space_dimension> 300 </Krylov_space_dimension>
+    <Linear_algebra type="fsils">
+      <Preconditioner> fsils </Preconditioner>
+    </Linear_algebra>
+  </LS>
+  <Output type="Spatial">
+    <Displacement> true </Displacement>
+  </Output>
+  <!-- wall and caps prescribed from the SAME global file (mapped by GID) -->
+  <Add_BC name="wall">
+    <Type> Prescribed_displacement </Type>
+    <Prescribed_displacement_file_path> @CASE@/displacement_boundary.txt </Prescribed_displacement_file_path>
+  </Add_BC>
+  <Add_BC name="z0">
+    <Type> Prescribed_displacement </Type>
+    <Prescribed_displacement_file_path> @CASE@/displacement_boundary.txt </Prescribed_displacement_file_path>
+  </Add_BC>
+  <Add_BC name="z1">
+    <Type> Prescribed_displacement </Type>
+    <Prescribed_displacement_file_path> @CASE@/displacement_boundary.txt </Prescribed_displacement_file_path>
+  </Add_BC>
+</Add_equation>
+
+</svMultiPhysicsFile>

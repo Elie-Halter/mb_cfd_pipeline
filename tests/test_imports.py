@@ -1,5 +1,5 @@
 """
-Smoke test: every Python file in morph/ and tools/ compiles, and the key library
+Smoke test: every Python file in morph/, tools/ and benchmarks/ compiles, and the key library
 modules import cleanly (catches syntax errors, broken imports, missing deps).
 Run:  python3 tests/test_imports.py
 """
@@ -9,7 +9,8 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 def main():
     pyfiles = sorted(glob.glob(os.path.join(ROOT, "morph", "*.py")) +
-                     glob.glob(os.path.join(ROOT, "tools", "*.py")))
+                     glob.glob(os.path.join(ROOT, "tools", "*.py")) +
+                     glob.glob(os.path.join(ROOT, "benchmarks", "*", "*.py")))
     nfail = 0
     print(f"compiling {len(pyfiles)} files ...")
     for f in pyfiles:

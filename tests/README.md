@@ -13,17 +13,19 @@ Or run a single component test:
 python3 tests/test_imports.py    # every morph/ and tools/ file compiles + key modules import
 python3 tests/test_postproc.py   # hemo_indices, extract_flowsplit_FB, compare_FB_MB, make_figures, gci, make_patient_xml
 python3 tests/test_meshing.py    # radius-based size map + MMG/TetGen toolchain (gated on the binaries)
+python3 tests/test_benchmarks.py # analytic Womersley, P1 integrals, benchmark templates and case generators
 ```
 
 | File | What it covers |
 |------|----------------|
 | `synth.py` | builds the tiny synthetic case (mesh + surfaces + fake result VTUs) |
-| `test_imports.py` | all `morph/` and `tools/` Python compiles; key library modules import |
+| `test_imports.py` | all `morph/`, `tools/` and `benchmarks/` Python compiles; key library modules import |
 | `test_postproc.py` | each post-processing tool runs end-to-end and writes its output |
 | `test_meshing.py` | `build_iso_mesh` radius-based size map; `mmgs_O3` + `tetgen` (skipped if not installed) |
+| `test_benchmarks.py` | Womersley closed form vs its ODE; P1 divergence/flux/volume integrals on exact fields; `benchmarks/*/case.xml.in` render; B1/B2 generators pass their pre-flight checks (gmsh-gated) |
 
 Notes:
 - Needs only the Python environment (`requirements.txt`). The meshing test skips cleanly if
   `mmgs_O3` / `tetgen` are absent.
 - A full solver end-to-end run is **not** part of this suite (it needs a built svMultiPhysics and a
-  real mesh); validate that separately with `check_install.sh` + a real case.
+  real mesh); `bash benchmarks/run_all.sh` runs the analytic benchmarks with the solver.
