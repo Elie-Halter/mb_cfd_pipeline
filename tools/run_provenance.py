@@ -15,7 +15,7 @@ Trois modes :
 Usage :
   run_provenance.py compare  MB_NULLREP/4-procs/results_1520.vtu  MB_PROD/4-procs/results_1520.vtu
   run_provenance.py fingerprint MB_PROD/4-procs/results_1650.vtu
-  run_provenance.py candidates ~/4826_sim/cap_pinning MB_PROD/4-procs/results_1650.vtu
+  run_provenance.py candidates cases/ MB_PROD/4-procs/results_1650.vtu
 """
 import sys, os, glob, re
 import numpy as np
