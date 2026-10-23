@@ -3,6 +3,7 @@
 Patient-specific moving-boundary (MB) versus rigid-wall (FB) CFD of the thoracic aorta, driven by
 multi-phase 4D-flow MRI segmentations.
 
+[![tests](https://github.com/Elie-Halter/mb_cfd_pipeline/actions/workflows/tests.yml/badge.svg)](https://github.com/Elie-Halter/mb_cfd_pipeline/actions/workflows/tests.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 Built on [svMultiPhysics](https://github.com/SimVascular/svMultiPhysics) and the

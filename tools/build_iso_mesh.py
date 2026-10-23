@@ -278,15 +278,17 @@ def _caliber(surf):
     s = surf.compute_normals(point_normals=True, cell_normals=False, auto_orient_normals=True)
     N = np.asarray(s.point_data["Normals"]); P = np.asarray(s.points)
     diag = float(np.linalg.norm(P.max(0) - P.min(0)))
-    obb = vtk.vtkOBBTree(); obb.SetDataSet(s); obb.BuildLocator()
+    # first intersection along the inward ray. vtkCellLocator, not vtkOBBTree: the OBB-tree
+    # line intersection returns non-deterministic hits with VTK 9.7 (same hits as this locator
+    # with VTK <= 9.6).
+    loc = vtk.vtkCellLocator(); loc.SetDataSet(s); loc.BuildLocator()
     cal = np.full(len(P), np.nan)
-    hit = vtk.vtkPoints()
+    t = vtk.reference(0.0); x = [0.0, 0.0, 0.0]; pc = [0.0, 0.0, 0.0]; sid = vtk.reference(0)
     for i in range(len(P)):
         p0 = P[i] - 1e-3 * N[i]          # start just inside (avoid self-hit)
         p1 = P[i] - diag * N[i]          # shoot inward across the lumen
-        hit.Reset()
-        if obb.IntersectWithLine(p0, p1, hit, None) and hit.GetNumberOfPoints() > 0:
-            cal[i] = np.linalg.norm(np.array(hit.GetPoint(0)) - P[i])
+        if loc.IntersectWithLine(p0, p1, 1e-9, t, x, pc, sid):
+            cal[i] = np.linalg.norm(np.array(x) - P[i])
     # fill misses with the median, then 2 neighbour-averaging passes to de-noise
     med = np.nanmedian(cal); cal[np.isnan(cal)] = med
     faces = s.faces.reshape(-1, 4)[:, 1:]
