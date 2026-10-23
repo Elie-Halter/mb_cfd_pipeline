@@ -1,6 +1,6 @@
 cff-version: 1.2.0
 message: "If you use this software, please cite it as below."
-title: "MB-CFD: open-source all-tetrahedral moving-boundary CFD for patient-specific aortic hemodynamics"
+title: "MB-CFD: prescribed-wall moving-boundary CFD for patient-specific aortic hemodynamics (svMultiPhysics)"
 authors:
   - family-names: Halter
     given-names: Elie
@@ -9,12 +9,13 @@ authors:
     given-names: Monika
     affiliation: "Aarhus University, Department of Mechanical and Production Engineering"
 abstract: >-
-  Open-source pipeline (svMultiPhysics + SimVascular/MMG/TetGen) for moving-boundary
-  vs fixed-boundary CFD of the patient-specific thoracic aorta. The volume mesh is
-  advanced over the full cardiac cycle by a fold-free prescribed morph (non-rigid
-  registration via normal shooting + rest-shape variational morph with a J>0 barrier),
-  prescribing all node positions to the solver (EXTENDED mode) so that no mesh-motion
-  PDE, no remeshing, and no solution interpolation are needed.
+  Open-source pipeline (svMultiPhysics + SimVascular/TetGen) for moving-boundary versus
+  rigid-wall CFD of the patient-specific thoracic aorta. The MRI-derived wall motion is
+  imposed on the wall, faded to zero over 12 mm next to the fixed caps, and the interior
+  mesh is moved by the solver's mesh equation; a patch makes the fluid assembly
+  consistent with the discrete geometric conservation law. Tools for re-timing the wall
+  motion, removing its rigid-body part, building rigid references at any cardiac phase
+  and computing volume-weighted lumen means are included.
 keywords:
   - computational fluid dynamics
   - moving boundary
@@ -24,6 +25,6 @@ keywords:
   - mesh morphing
 license: MIT
 repository-code: "https://github.com/Elie-Halter/mb_cfd_pipeline"
-version: "0.1.0"
-date-released: "2026-06-12"
+version: "0.2.0"
+date-released: "2026-10-23"
 # TODO: add the companion paper reference (preferred-citation) upon publication.
