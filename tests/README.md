@@ -29,5 +29,7 @@ python3 tests/test_chain_image.py # image-registration wall chain + phase subset
 Notes:
 - Needs only the Python environment (`requirements.txt`). The meshing test skips cleanly if
   `mmgs_O3` / `tetgen` are absent.
+- GitHub Actions runs this suite on every push and pull request (`.github/workflows/tests.yml`:
+  Ubuntu 22.04, Python 3.10, `requirements.txt` only, no solver, no MMG, no itk-elastix).
 - A full solver end-to-end run is **not** part of this suite (it needs a built svMultiPhysics and a
   real mesh); `bash benchmarks/run_all.sh` runs the analytic benchmarks with the solver.
