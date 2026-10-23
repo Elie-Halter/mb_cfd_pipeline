@@ -9,7 +9,7 @@ chain (one segmented phase, image registration) is in `chain_image/`. Overview: 
 
 | File | Role |
 |------|------|
-| `pipeline.py` | **driver**, multi-instance: N STL phases + reference mesh → EXTENDED displacement file |
+| `pipeline.py` | **driver**, multi-instance: N STL phases + reference mesh → registration (`--register-only`, what production uses) and an unpinned EXTENDED displacement file |
 | `register.py` | fold-free non-rigid registration (Laplacian N-ICP + normal shooting) |
 | `morph_volume.py` | rest-shape volumetric morph (Escobar energy, J>0 barrier, L-BFGS, local polish) |
 | `check_write_any.py` | signed-J validation (samples + midpoints) + EXTENDED writing (periodic PCHIP) |
@@ -21,9 +21,9 @@ chain (one segmented phase, image registration) is in `chain_image/`. Overview: 
 
 ## Usage
 ```bash
-python3 morph/pipeline.py --mesh ref.vtu --out workdir \
+python3 morph/pipeline.py --mesh ref.vtu --out workdir --register-only \
     --phase 0.40:A.stl --phase 0.60:B.stl --phase 0.80:C.stl --phase 0.95:D.stl
-# -> workdir/displacement_*.txt (EXTENDED format, all nodes) + reg/morph reports
+# -> workdir/reg_*.npy (without --register-only: also an unpinned morph, not used in production)
 python3 morph/run_pinned_morph.py --mesh ref.vtu --surf mesh-surfaces --reg-dir workdir \
     --out pinned --L 12 --phase 0.40 --phase 0.60 --phase 0.80 --phase 0.95
 python3 tools/extended_to_standard.py pinned/displacement_all_nodes.txt displacement_wall.txt \

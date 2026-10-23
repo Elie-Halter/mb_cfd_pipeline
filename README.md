@@ -53,9 +53,12 @@ cp patients/TEMPLATE.env patients/P0001.env   # phase STLs, MRI flow split, path
 bash run_patient.sh patients/P0001.env
 ```
 
-This chains reference mesh → morph → RCR calibration → FB run → MB run → post-processing → FB/MB
-comparison. Two gates stop the run: G1 if the registration folds, G2 if the outlet flow split
-deviates from MRI. The only input that is not code is the set of segmented phase STLs.
+This chains reference mesh → registration → cap-pinned morph with the 12 mm taper → wall-only
+displacement file → RCR calibration → FB run → MB run → post-processing → FB/MB comparison, in the
+production configuration of `FB_example.xml` / `MB_example.xml`. Two gates stop the run: G1 if the
+pinned morph folds, G2 if the outlet flow split deviates from MRI. `--dry-run` prints the commands
+and the generated XMLs without running them. The only input that is not code is the set of
+segmented phase STLs.
 
 Individual stages, the second wall chain and the benchmarks are in [REPRODUCE.md](REPRODUCE.md).
 

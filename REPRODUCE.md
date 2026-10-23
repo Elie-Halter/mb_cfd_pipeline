@@ -49,8 +49,8 @@ against 6.66e-2 without it (`benchmarks/build_nogcl.sh` builds the contrast solv
 ```bash
 python3 tools/cohort_cap_label.py lumen_open.stl ref/                 # caps + cap surfaces (or your own)
 python3 tools/build_iso_mesh.py ref/capped.stl ref/mesh-surfaces mesh/ --rbm 6 --hmin 0.2 --hmax 0.8
-python3 tools/make_inlet_flow.py mri_inlet.csv flow_rate.txt --t-cycle T --nsteps N   # NEGATIVE inflow
-python3 tools/check_inlet_sign.py flow_rate.txt --t-cycle T --nsteps N
+python3 tools/make_inlet_flow.py mri_inlet.csv inflow.txt --t-cycle T --nsteps N   # NEGATIVE inflow
+python3 tools/check_inlet_sign.py inflow.txt --t-cycle T --nsteps N
 python3 tools/calibrate_rcr.py --flow mri_inlet.csv --map MAP          # RCR per outlet on the MRI split
 ```
 
@@ -68,19 +68,20 @@ wall nodes, mapped by GlobalNodeID) and use the same cap pinning and 12 mm geode
 ### A. Several segmented phases — surface registration (`morph/`)
 
 ```bash
-python3 morph/pipeline.py --mesh mesh/mesh-complete.mesh.vtu --out work/ \
+python3 morph/pipeline.py --mesh mesh/mesh-complete.mesh.vtu --out work/ --register-only \
     --phase 0.40:phaseA.stl --phase 0.60:phaseB.stl --phase 0.80:phaseC.stl --t-cycle T
 python3 morph/run_pinned_morph.py --mesh mesh/mesh-complete.mesh.vtu --surf mesh/mesh-surfaces \
     --reg-dir work/ --out work_pinned/ --L 12 --phase 0.40 --phase 0.60 --phase 0.80 --t-cycle T
-python3 tools/extended_to_standard.py work_pinned/displacement_all_nodes.txt displacement_wall.txt \
+python3 tools/extended_to_standard.py work_pinned/displacement_all_nodes.txt wall_displacement.txt \
     --face mesh/mesh-surfaces/wall.vtp
 ```
 
 `pipeline.py` registers the reference surface onto every segmented phase (Laplacian N-ICP with
-normal shooting, fold-free and iso-topological) and runs the offline rest-shape morph over the
-cycle (gate G1: inverted elements must stay below the solver's critical volume).
-`run_pinned_morph.py` reuses that registration with pinned caps and the 12 mm taper
-(`morph/pin_caps.py sweep` screens the taper length). Both write an EXTENDED all-node file;
+normal shooting, fold-free and iso-topological); without `--register-only` it also runs an
+unpinned offline morph, which production does not use. `run_pinned_morph.py` reuses that
+registration with pinned caps and the 12 mm taper and runs the offline rest-shape morph over the
+cycle (gate G1: inverted elements must stay below the solver's critical volume;
+`morph/pin_caps.py sweep` screens the taper length). It writes an EXTENDED all-node file;
 `extended_to_standard.py` keeps the wall positions only. See [morph/README.md](morph/README.md).
 
 ### B. One segmented phase — image registration (`chain_image/`)
@@ -94,8 +95,8 @@ python3 chain_image/smooth_wall_field.py --in wall_raw.npz --wall-vtp mesh/mesh-
 python3 chain_image/taper_wall_field.py --in wall_smooth.npz --mesh mesh/mesh-complete.mesh.vtu \
     --surfaces mesh/mesh-surfaces --caps asc desc btca lcca lsa --length 12 --out wall_taper.npz
 python3 chain_image/write_wall_displacement.py --in wall_taper.npz --mesh mesh/mesh-complete.mesh.vtu \
-    --period T --dt 0.001 --cycles 3 --preroll 0.15 --out displacement_wall.txt \
-    --flow-in mri_inlet.csv --flow-out flow_rate.txt
+    --period T --dt 0.001 --cycles 3 --preroll 0.15 --out wall_displacement.txt \
+    --flow-in mri_inlet.csv --flow-out inflow.txt
 ```
 
 The mesh is built on the segmented (reference) phase; elastix B-spline registration maps every
@@ -113,8 +114,10 @@ written on the same clock (`--flow-in`, negative). See [chain_image/README.md](c
 
 ## 5. Solver set-up and runs
 
-Start from `FB_example.xml` / `MB_example.xml` (`tools/make_patient_xml.py` repoints the paths).
-The MB case used in production has:
+Start from `FB_example.xml` / `MB_example.xml`: they are the production inputs with relative
+paths (`mesh/...`, `inflow.txt`, `wall_displacement.txt`) and example RCR values;
+`tools/make_patient_xml.py` repoints the paths and refuses an MB file that deviates from the
+table below or an EXTENDED displacement file. The MB case used in production has:
 
 | Equation | Face | Boundary condition |
 |---|---|---|
@@ -134,11 +137,11 @@ tools/svmp_run.sh FB.xml runs/FB fb 4       # one solver run at a time on a mach
 tools/svmp_run.sh MB.xml runs/MB mb 4
 ```
 
-`run_patient.sh patients/<case>.env` automates chain A, the XML generation, the inflow file
-(with the sign check), the FB and MB runs and the post-processing for one case. It feeds the MB
-run with the all-node file of `morph/pipeline.py`; for the production configuration above
-(pinned caps, wall-only file, mesh equation for the interior), prepare the wall file with §4 and
-check the MB XML against the table.
+`run_patient.sh patients/<case>.env` automates chain A in the production configuration
+(registration, pinned morph with the 12 mm taper, wall-only STANDARD file), the XML generation
+from the examples, the inflow file (with the sign check), the FB and MB runs and the
+post-processing for one case. `bash run_patient.sh --dry-run patients/<case>.env` prints every
+command and the generated XMLs without running anything else.
 
 ## 6. Check the runs
 

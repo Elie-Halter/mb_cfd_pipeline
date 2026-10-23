@@ -17,7 +17,7 @@ Every script prints its full usage with `--help` (or in its docstring). Grouped 
 | `make_inlet_flow.py` | Inlet flow file with the solver's sign and period: antegrade-positive MRI waveform → **negative** flow rate (positive = outflow, see CONVENTIONS.md §1), resampled at the time step over the whole run (exact period) | `python3 make_inlet_flow.py mri_inlet.csv flow_rate.txt --t-cycle T --nsteps N [--dt 0.001]` |
 | `check_inlet_sign.py` | Pre-flight: refuses an inlet file that would impose an outflow (exit 2) or whose period differs from the cycle (exit 3) | `python3 check_inlet_sign.py flow_rate.txt --t-cycle T [--nsteps N]` |
 | `calibrate_rcr.py` | RCR Windkessel calibration on the MRI flow split (Opt 3) | `python3 calibrate_rcr.py --flow <inlet.txt> --map <MAP>` |
-| `make_patient_xml.py` | Derives a patient's FB/MB XML files from the templates (paths repointed, comments kept) | `python3 make_patient_xml.py --fb-template … --mb-template … --mesh … --surf … --disp … --fb-out … --mb-out …` |
+| `make_patient_xml.py` | Derives a case's FB/MB XML files from `FB_example.xml` / `MB_example.xml` (paths repointed, comments kept); refuses an MB template without `Dir 0` caps in the mesh equation or an EXTENDED displacement file | `python3 make_patient_xml.py --fb-template … --mb-template … --mesh … --surf … --disp … --fb-out … --mb-out …` |
 
 ## Wall motion
 
