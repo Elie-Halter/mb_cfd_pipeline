@@ -12,7 +12,7 @@ so the prescribed boundary stays fold-free. Interior follows via the existing ha
 extension + rest-shape stages of pipeline.py.
 
 Provides:
-  load_geom(mesh, surf_dir)            -> X0, vid(local->vol), tri(local), cap_local(mask), gdist(mm)
+  load_geom(mesh, surf_dir[, caps])    -> X0, vid(local->vol), tri(local), cap_local(mask), gdist(mm)
   taper_weights(gdist, cap_local, L)   -> w in [0,1] per boundary node (w=0 on caps)
   pin_reg_array(P0_local, reg, w)      -> pinned/tapered boundary positions
   harmonic_extend(...)                 -> interior positions for a cheap fold proxy
@@ -26,7 +26,11 @@ import scipy.sparse as sp
 import scipy.sparse.linalg as spl
 
 
-def load_geom(mesh, surf_dir):
+DEFAULT_CAPS = ("asc", "desc", "btca", "lcca", "lsa")
+
+
+def load_geom(mesh, surf_dir, caps=DEFAULT_CAPS):
+    """caps: names of the cap faces (<surf_dir>/<name>.vtp) to pin."""
     import pyvista as pv
     g = pv.read(mesh)
     X0 = np.asarray(g.points).astype(float)
@@ -45,7 +49,7 @@ def load_geom(mesh, surf_dir):
     nb = len(vid)
     v2l = -np.ones(X0.shape[0], np.int64); v2l[vid] = np.arange(nb)            # vol->local
 
-    cap_vol = np.unique(np.concatenate([idx_of(n) for n in ["asc", "desc", "btca", "lcca", "lsa"]]))
+    cap_vol = np.unique(np.concatenate([idx_of(n) for n in caps]))
     cap_local = np.zeros(nb, bool)
     loc = v2l[cap_vol]; cap_local[loc[loc >= 0]] = True
 

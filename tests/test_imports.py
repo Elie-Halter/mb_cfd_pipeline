@@ -1,5 +1,5 @@
 """
-Smoke test: every Python file in morph/, tools/ and benchmarks/ compiles, and the key library
+Smoke test: every Python file in morph/, chain_image/, tools/ and benchmarks/ compiles, and the key library
 modules import cleanly (catches syntax errors, broken imports, missing deps).
 Run:  python3 tests/test_imports.py
 """
@@ -9,6 +9,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 def main():
     pyfiles = sorted(glob.glob(os.path.join(ROOT, "morph", "*.py")) +
+                     glob.glob(os.path.join(ROOT, "chain_image", "*.py")) +
                      glob.glob(os.path.join(ROOT, "tools", "*.py")) +
                      glob.glob(os.path.join(ROOT, "benchmarks", "*", "*.py")))
     nfail = 0
@@ -20,10 +21,10 @@ def main():
             print(f"  [FAIL] compile {os.path.relpath(f, ROOT)}: {e}"); nfail += 1
 
     # import the key library modules (must load without a __main__ run)
-    for sub in ("morph", "tools"):
+    for sub in ("morph", "chain_image", "tools"):
         sys.path.insert(0, os.path.join(ROOT, sub))
     for mod in ["register", "morph_volume", "check_write_any",
-                "hemo_indices", "compare_FB_MB", "gci", "build_iso_mesh"]:
+                "hemo_indices", "compare_FB_MB", "gci", "build_iso_mesh", "wallfield", "phase_subset_wall"]:
         try:
             importlib.import_module(mod)
             print(f"  [PASS] import {mod}")
