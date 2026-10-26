@@ -29,6 +29,10 @@ The solver changes are verified on synthetic analytic benchmarks that need no pa
 (`benchmarks/`): free-stream preservation, an analytically expanding tube (moving no-slip and the
 discrete mass balance with and without patch 0014) and Womersley flow.
 
+**Upstream status.** The defect fixed by patch 0014 is still present in upstream svMultiPhysics
+(checked on commit `33debd0`, 22 October 2026) and has been reported to the developers. Until a fix is
+merged upstream, any svMultiPhysics run with a deforming fluid mesh should apply this patch.
+
 An offline rest-shape variational morph (Escobar mean-ratio energy with a positive-Jacobian barrier,
 `morph/`) is kept as a validity check that the imposed wall admits a valid interior mesh; the
 production runs take only the wall positions from the displacement file.
