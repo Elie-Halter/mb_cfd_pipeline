@@ -119,7 +119,10 @@ svMultiPhysics has a few conventions that silently produce plausible-looking but
 get them wrong — the sign of the inlet flow rate, the period of temporal files, the fluid boundary
 condition on a prescribed-motion wall, and cap pinning. They are in
 [CONVENTIONS.md](CONVENTIONS.md), together with the checks that tell you a run is sound.
-Read it once.
+Read it once. Before meshing, check that the lumen surface sits on the image it was segmented on,
+at the right size: `tools/check_geometry_vs_image.py` (run automatically by `run_patient.sh` as gate
+G0 when `REF_IMAGE` is set) -- a surface rescaled or mirrored on its way to the mesher keeps its
+shape and fails nothing else.
 
 ## Layout
 

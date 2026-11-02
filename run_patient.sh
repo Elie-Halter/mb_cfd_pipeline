@@ -16,6 +16,8 @@
 #    5. MB run (wall prescribed, interior moved by the solver's mesh equation)
 #    6. post-processing, 7. FB vs MB comparison
 #  STOPS at two human GATES: (G1) solver-safe pinned morph, (G2) MRI flow split.
+#  With REF_IMAGE (and REF_SEG) set, step 1 first checks that REF_STL sits on the image at
+#  the right size (tools/check_geometry_vs_image.py) and stops on a FAIL (gate G0).
 #
 #  Usage:  bash run_patient.sh [--dry-run] patients/<case>.env
 #    --dry-run   print every command and the generated XMLs; run nothing else
@@ -74,6 +76,15 @@ run_log(){ local log="$1"; shift
 
 # --- 1. REFERENCE MESH (all-tet + surfaces, GID/EID/FaceID) -----------------
 if [ "$STEP" -le 1 ]; then
+  if [ -n "${REF_IMAGE:-}" ]; then
+    gate "G0 -- reference surface vs image (position, frame, size)"
+    G0_ARGS=(--image "$REF_IMAGE" --json "$WORK/geometry_check.json")
+    [ -n "${REF_SEG:-}" ] && G0_ARGS+=(--seg "$REF_SEG")
+    [ -n "${REF_SEG_LABEL:-}" ] && G0_ARGS+=(--label "$REF_SEG_LABEL")
+    [ "${REF_STL_RAS:-0}" = 1 ] && G0_ARGS+=(--ras)
+    run "$PY" "$REPO/tools/check_geometry_vs_image.py" "$REF_STL" "${G0_ARGS[@]}" || {
+      echo -e "\033[1;31m  G0 FAILED: the reference surface does not match the image -- fix the geometry first.\033[0m"; exit 2; }
+  fi
   say "1/7 reference mesh (build_iso_mesh)"
   run "$PY" "$REPO/tools/build_iso_mesh.py" "$REF_STL" "$ORIG_SURF" "$WORK/mesh" "${SURF_HMAX:-0.5}"
 fi

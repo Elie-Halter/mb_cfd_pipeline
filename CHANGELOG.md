@@ -10,6 +10,11 @@ To be released as 0.3.0 (the version `CITATION.cff` already carries), together w
 submission of the companion paper.
 
 ### Added
+- `tools/check_geometry_vs_image.py`: pre-flight check that the lumen surface used for the mesh
+  sits on the patient's image at the right size (rigid vs similarity fit against the
+  segmentation; catches a surface rescaled, moved or mirrored between the segmentation and the
+  mesher). `run_patient.sh` runs it before meshing when `REF_IMAGE` is set (gate G0, stops on a
+  FAIL); synthetic test `tests/test_geometry_check.py`. `SimpleITK` added to `requirements.txt`.
 - `benchmarks/`: synthetic analytic verification suite that needs no patient data — free-stream
   preservation (B1), analytically expanding tube with the discrete mass balance with and without
   patch 0014 (B2, plus its temporal order), Womersley flow (B3, plus a refinement study);

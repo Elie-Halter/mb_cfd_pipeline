@@ -8,6 +8,7 @@ Every script prints its full usage with `--help` (or in its docstring). Grouped 
 |--------|------|-------|
 | `cohort_cap_label.py` | Caps and labels the openings of a raw open lumen surface: closed STL + reference cap surfaces `asc/desc/btca/lcca/lsa` (3 smallest openings = branches, larger of the 2 largest = inlet, branches named by their order along the arch); QC render | `python3 cohort_cap_label.py RAW.(stl\|vtp) OUT_DIR` |
 | `build_iso_mesh.py` | Reference STL → all-tet mesh + surfaces (GID/EID/FaceID). Uniform, or **radius-based** (`--rbm N`: ~N elements across the local diameter → finer small branches, no SimVascular) | `python3 build_iso_mesh.py <stl> <surfaces> <out> [hmax] [--rbm 6 --hmin 0.2 --hmax 0.8]` |
+| `check_geometry_vs_image.py` | Pre-flight: does the lumen surface sit on the image it was segmented on, **at the right size**? Field of view, wall contrast, and against the segmentation a rigid vs a similarity fit: FAIL if the surface needs a scale (rescaled in another software) or a large rigid correction (moved, mirrored RAS/LPS) | `python3 check_geometry_vs_image.py lumen.stl --image phase.nii.gz --seg seg.nrrd [--label N] [--ras]` |
 | `build_fb_at_phase.py` | Rigid-wall mesh frozen at any phase of a prescribed motion (wall-field `.npz` or EXTENDED file), same numbering and connectivity as the moving mesh; `--scan` lists the lumen volume per phase | `python3 build_fb_at_phase.py --mesh ref.vtu --surfaces mesh-surfaces --wall-npz wall.npz --ref-index R --phase K --out-dir out/` |
 
 ## Inflow and boundary conditions
