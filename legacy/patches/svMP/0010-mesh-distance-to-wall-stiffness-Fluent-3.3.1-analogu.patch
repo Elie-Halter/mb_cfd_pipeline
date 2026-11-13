@@ -9,7 +9,6 @@ J-based stiffness so the boundary layer moves quasi-rigidly. Off by default
 (gamma=0); enable via SVMP_WALL_STIFF_EXP / SVMP_WALL_STIFF_CAP. Wall distance
 cached and recomputed on remesh.
 
-Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
 ---
  Code/Source/solver/mesh.cpp | 116 +++++++++++++++++++++++++++++++++++-
  1 file changed, 113 insertions(+), 3 deletions(-)

@@ -1,6 +1,6 @@
 cff-version: 1.2.0
 message: "If you use this software, please cite it as below."
-title: "MB-CFD: prescribed-wall moving-boundary CFD for patient-specific aortic hemodynamics (svMultiPhysics)"
+title: "MB-CFD: MRI-driven moving-boundary CFD for patient-specific aortic hemodynamics (svMultiPhysics)"
 authors:
   - family-names: Halter
     given-names: Elie
@@ -9,12 +9,13 @@ authors:
     given-names: Monika
     affiliation: "Aarhus University, Department of Mechanical and Production Engineering"
 abstract: >-
-  Open-source pipeline (svMultiPhysics + SimVascular/TetGen) for moving-boundary versus
-  rigid-wall CFD of the patient-specific thoracic aorta. The MRI-derived wall motion is
-  imposed on the wall, faded to zero over 12 mm next to the fixed caps, and the interior
-  mesh is moved by the solver's mesh equation; a patch makes the fluid assembly
-  consistent with the discrete geometric conservation law. Tools for re-timing the wall
-  motion, removing its rigid-body part, building rigid references at any cardiac phase
+  Open-source pipeline for moving-boundary versus rigid-wall CFD of the patient-specific
+  thoracic aorta from 4D-flow MRI, run with the official, unmodified svMultiPhysics.
+  One segmented phase is propagated to every cardiac phase by image registration (Elastix);
+  the wall motion is imposed on the wall, faded to zero over 12 mm next to the fixed caps,
+  and the interior mesh is moved by the solver's mesh equation (FSI equation with a fluid
+  domain only). Gmsh meshing, conversion to the official solver input, analytic benchmarks,
+  and tools for re-timing the wall motion, building rigid references at any cardiac phase
   and computing volume-weighted lumen means are included.
 keywords:
   - computational fluid dynamics
@@ -22,20 +23,20 @@ keywords:
   - arbitrary Lagrangian-Eulerian
   - aortic hemodynamics
   - 4D-flow MRI
-  - mesh morphing
+  - image registration
 license: MIT
 repository-code: "https://github.com/Elie-Halter/mb_cfd_pipeline"
-version: "0.3.0"
+version: "1.0.0"
 preferred-citation:
   type: article
-  title: "Moving versus rigid wall in aortic CFD: diastolic flow in healthy and Turner-syndrome aortas"
+  title: "An open-source pipeline for moving boundary aortic hemodynamics from low-resolution 4D MRI data"
   authors:
     - family-names: Halter
       given-names: Elie
     - family-names: Colombo
       given-names: Monika
       affiliation: "Aarhus University, Department of Mechanical and Production Engineering"
-  status: in-preparation
+  status: submitted
   journal: "TBD"
   year: 2026
   repository-code: "https://github.com/Elie-Halter/mb_cfd_pipeline"

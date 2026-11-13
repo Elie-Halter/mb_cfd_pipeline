@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Versioned launcher for the moving-boundary aniso run.
 #
-# WHY THIS WRAPPER EXISTS: MB_example.xml solves the mesh-motion equation with FSILS,
+# WHY THIS WRAPPER EXISTS: the mesh-motion equation can be solved with FSILS,
 # for which PETSC_OPTIONS is irrelevant. The alternative is <Linear_algebra type="petsc">
 # with the GAMG (algebraic multigrid) preconditioner, used for one of the production
 # cases. svMP's XML only exposes `petsc-jacobi` / `petsc-rcs` as <Preconditioner>

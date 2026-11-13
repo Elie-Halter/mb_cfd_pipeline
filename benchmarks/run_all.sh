@@ -4,7 +4,6 @@
 #
 #   B1  free-stream preservation on a moving mesh
 #   B2  analytically expanding tube: moving no-slip, induced flow, discrete mass balance
-#       (DGCL contrast when a solver built without patch 0014 is supplied)
 #   B3  Womersley flow in a rigid tube (flow-rate amplitude and phase, profile error)
 #
 # Usage:
@@ -19,10 +18,10 @@
 #                   but do not call the solver (cheap; useful to validate an installation)
 #   --regen         regenerate the cases even if they already exist
 # Environment:
-#   SVMP_BIN        patched solver (default: $HOME/svmp_bin/svmultiphysics, as installed by
-#                   install.sh)
-#   SVMP_BIN_NOGCL  optional: the same solver built WITHOUT patch 0014; enables the DGCL
-#                   contrast runs of B1 and B2 (see benchmarks/README.md for the build)
+#   SVMP_BIN        official svMultiPhysics (default: $HOME/svmp_bin/svmultiphysics, as built by
+#                   install.sh at commit 86729244, unmodified)
+# The moving-mesh cases (B1, B2) are written in the pipeline's authoring format and converted by
+# tools/to_official_solver.py (FSI equation, fluid domain + mesh equation) before each run.
 #   PYTHON          Python interpreter (default python3)
 #
 # Runs are strictly sequential, and the script refuses to start a run while another
@@ -32,7 +31,6 @@ set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PY="${PYTHON:-python3}"
 BIN="${SVMP_BIN:-$HOME/svmp_bin/svmultiphysics}"
-BIN_NOGCL="${SVMP_BIN_NOGCL:-}"
 OUT="$HERE/_out"
 NP=4
 CASES="B1 B2 B3"
@@ -93,20 +91,23 @@ solve() {  # solve <bin> <xml> <run_dir>
 # render <template> <xml_out> KEY=VAL...
 render() { "$PY" "$HERE/common/render_xml.py" "$@" >/dev/null; }
 
+# official <authoring xml> <run_dir>: write <run_dir>/case_official.xml + per-face displacement files
+official() { "$PY" "$HERE/../tools/to_official_solver.py" "$1" "$2/case_official.xml" "$2/disp_official" > "$2/to_official.log" 2>&1; }
+
 # ---------------------------------------------------------------------------- B1
 run_B1() {
   local C="$OUT/B1_freestream/case"
   gen B1_freestream "$C" || { note "B1 generate" 1; return; }
-  local labels="patched"; [ -n "$BIN_NOGCL" ] && labels="patched nogcl"
-  for lab in $labels; do
+  for lab in official; do
     local R="$OUT/B1_freestream/run_$lab"; mkdir -p "$R"
     render "$HERE/B1_freestream/case.xml.in" "$R/case.xml" CASE="$C"
     "$PY" "$HERE/B1_freestream/preflight.py" --case "$C" --xml "$R/case.xml" > "$R/preflight.log" 2>&1
     note "B1 preflight ($lab)" $? ; tail -1 "$R/preflight.log"
+    official "$R/case.xml" "$R"; local rc=$?; note "B1 convert to official input" $rc
+    [ $rc -eq 0 ] || continue
     [ "$NOSOLVER" -eq 1 ] && continue
-    local bin="$BIN"; [ "$lab" = "nogcl" ] && bin="$BIN_NOGCL"
     echo "[run_all] B1 $lab: 200 steps (~10-20 min on 4 ranks)"
-    solve "$bin" "$R/case.xml" "$R"; note "B1 solver ($lab)" $? info
+    solve "$BIN" "$R/case_official.xml" "$R"; note "B1 solver ($lab)" $? info
     "$PY" "$HERE/B1_freestream/analyze.py" "$R" --label "$lab" | tail -2
     note "B1 free stream ($lab)" "${PIPESTATUS[0]}"
   done
@@ -119,7 +120,7 @@ run_B2() {
   local variants="dt1"; [ "$FULL" -eq 1 ] && variants="dt1 dt2 dt4"
   local runs=() labels
   for v in $variants; do
-    labels="patched"; [ "$v" = "dt1" ] && [ -n "$BIN_NOGCL" ] && labels="patched nogcl"
+    labels="official"
     local div="${v#dt}"
     read -r DT NSTEPS VTK RST < <("$PY" -c "import sys; sys.path.insert(0,'$HERE/B2_expanding_tube'); \
 from params import variant; v=variant($div); print(v['DT'], v['NSTEPS'], v['VTK_INC'], v['RESTART_INC'])")
@@ -129,18 +130,15 @@ from params import variant; v=variant($div); print(v['DT'], v['NSTEPS'], v['VTK_
              VTK_INC="$VTK" RESTART_INC="$RST"
       "$PY" "$HERE/B2_expanding_tube/preflight.py" --case "$C" --xml "$R/case.xml" > "$R/preflight.log" 2>&1
       note "B2 preflight ($v, $lab)" $? ; tail -1 "$R/preflight.log"
+      official "$R/case.xml" "$R"; local rcv=$?; note "B2 convert to official input ($v)" $rcv
+      [ $rcv -eq 0 ] || continue
       [ "$NOSOLVER" -eq 1 ] && continue
-      local bin="$BIN"; [ "$lab" = "nogcl" ] && bin="$BIN_NOGCL"
       echo "[run_all] B2 $v $lab: $NSTEPS steps, dt = $DT s"
-      solve "$bin" "$R/case.xml" "$R"; note "B2 solver ($v, $lab)" $? info
+      solve "$BIN" "$R/case_official.xml" "$R"; note "B2 solver ($v, $lab)" $? info
       "$PY" "$HERE/B2_expanding_tube/analyze.py" "$R" --case "$C" --dt "$DT" --label "$lab" | tail -5
       local rc="${PIPESTATUS[0]}"
-      if [ "$lab" = "nogcl" ]; then
-        note "B2 without 0014 (expected FAIL)" 0 info
-      else
-        note "B2 expanding tube ($v)" "$rc"
-      fi
-      [ "$lab" = "patched" ] && runs+=("$R:$DT")
+      note "B2 expanding tube ($v)" "$rc"
+      runs+=("$R:$DT")
     done
   done
   if [ "$NOSOLVER" -eq 0 ] && [ "${#runs[@]}" -ge 2 ]; then
@@ -191,28 +189,6 @@ for c in $CASES; do
   esac
 done
 
-if [ "$NOSOLVER" -eq 0 ] && [ -n "$BIN_NOGCL" ]; then
-  "$PY" - "$OUT" <<'EOF'
-import csv, math, os, sys
-out = sys.argv[1]
-def b1(lab):
-    p = f"{out}/B1_freestream/run_{lab}/b1_metrics_{lab}.csv"
-    return max(float(r["max_rel_vel_err"]) for r in csv.DictReader(open(p))) if os.path.exists(p) else float("nan")
-def b2(lab):
-    p = f"{out}/B2_expanding_tube/run_dt1_{lab}/b2_metrics_{lab}.csv"
-    if not os.path.exists(p):
-        return float("nan")
-    rows = list(csv.DictReader(open(p)))
-    s = max(abs(float(r["minus_dVa_dt"])) for r in rows)
-    return max(abs(float(r["Q_caps"]) + float(r["Q_wall"])) for r in rows if float(r["t_s"]) >= 0.5) / s
-fp, fn, lp, ln = b1("patched"), b1("nogcl"), b2("patched"), b2("nogcl")
-print("\n===== DGCL contrast (patched vs built without patch 0014) =====")
-print(f"B1 free stream max|u-U|/U       : patched {fp:.3e}   without 0014 {fn:.3e}   (not discriminating)")
-print(f"B2 closed-boundary mass balance : patched {lp:.3e}   without 0014 {ln:.3e}")
-if lp > 0 and ln > 0:
-    print(f"   contrast x{ln/lp:.3g} = {math.log10(ln/lp):.1f} orders of magnitude (reference 4.3)")
-EOF
-fi
 
 echo
 echo "======================== benchmark summary ========================"

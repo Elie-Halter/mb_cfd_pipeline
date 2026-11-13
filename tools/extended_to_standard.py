@@ -4,8 +4,8 @@ extended_to_standard.py -- turn the EXTENDED displacement file written by morph/
 the domain, offline rest-shape morph) into the STANDARD wall-motion file used in production.
 
 morph/pipeline.py and morph/run_pinned_morph.py write an EXTENDED file ("n nT", an "EXTENDED"
-line, the GID list, then per time "t" and "gid x y z"). With that keyword the patched solver
-imposes the morph on EVERY node (patch 0013, not used in production). Production takes only the
+line, the GID list, then per time "t" and "gid x y z"). With that keyword the legacy patched solver
+imposed the morph on EVERY node (legacy patch 0013, not used in production). Production takes only the
 wall positions from it and lets the solver's mesh equation move the interior: the same blocks
 without the keyword and GID list form a STANDARD file, which the solver maps by GID onto the
 face it is attached to and ignores everywhere else. With --face, only the nodes of that face

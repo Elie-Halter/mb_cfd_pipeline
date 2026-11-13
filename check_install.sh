@@ -142,13 +142,8 @@ done
 
 [ -f "$SCRIPT_DIR/patients/TEMPLATE.env" ] && ok "patients/TEMPLATE.env" || warn "patients/TEMPLATE.env missing"
 
-# Patches
-N_PATCHES=$(ls "$SCRIPT_DIR/patches/svMP/"*.patch 2>/dev/null | wc -l)
-if [ "$N_PATCHES" -gt 0 ]; then
-    ok "svMP patches: $N_PATCHES files"
-else
-    warn "svMP patches: none found in patches/svMP/"
-fi
+# Solver: official svMultiPhysics, used unmodified (the converter writes its moving-wall input)
+[ -f "$SCRIPT_DIR/tools/to_official_solver.py" ] && ok "tools/to_official_solver.py" || fail "Missing code: tools/to_official_solver.py"
 
 # ------------------------------------------------------------------------------
 # 6. Data

@@ -11,7 +11,7 @@ and the observed order p = log2(err(dt) / err(dt/2)) between successive runs.
 Usage:
   python3 temporal_order.py --case <case_dir> RUN_DIR:DT [RUN_DIR:DT ...] [--csv out.csv]
 
-Reference values (patched solver, 4 ranks): err_c_max = 3.31e-6 / 4.49e-7 / 3.12e-8 at
+Reference values (official svMultiPhysics 86729244, 4 ranks): err_c_max = 3.31e-6 / 4.49e-7 / 3.12e-8 at
 dt = 5 / 2.5 / 1.25 ms -> p = 2.88 then 3.85 (err_c_rms: 2.97 then 4.40); err_b_max ~ 1.64 % at
 every dt (p ~ 0: the induced-flow error is the spatial polygonal-volume deficit). Tightening
 the fluid tolerances x50 at dt = 5 ms leaves err_c unchanged (3.306e-6), so the residual is a

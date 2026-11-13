@@ -1,29 +1,28 @@
 # ============================================================================
-#  Apptainer/Singularity — image MB-CFD pour cluster HPC (loué ou académique).
+#  Apptainer/Singularity -- MB-CFD image for an HPC cluster.
 #
-#  Le plus simple = convertir l'image Docker (recommandé) :
+#  Simplest: convert the Docker image (recommended):
 #     docker build -t mbcfd .
 #     apptainer build mbcfd.sif docker-daemon://mbcfd:latest
 #
-#  OU build natif depuis cette def (sans Docker) :
+#  OR native build from this definition (no Docker):
 #     apptainer build --fakeroot mbcfd.sif apptainer/mbcfd.def
 #
-#  Run sur le cluster (SLURM) — voir docs/PORTABLE_SETUP.md :
+#  Run on the cluster (SLURM):
 #     apptainer exec --bind /scratch/data:/data mbcfd.sif \
 #        bash -lc 'export PETSC_OPTIONS="-pc_type gamg -pc_gamg_type agg"; \
-#                  mpirun -np $SLURM_NTASKS svmultiphysics /data/run/<patient>_MB.xml'
+#                  mpirun -np $SLURM_NTASKS svmultiphysics /data/run/<patient>_MB_official.xml'
 # ============================================================================
 Bootstrap: docker
 From: ubuntu:22.04
 
 %files
-    patches/svMP /opt/patches_src
     requirements.txt /opt/repo/requirements.txt
 
 %post
     export DEBIAN_FRONTEND=noninteractive
     CORES=${CORES:-4}
-    SVMP_COMMIT=97ef51223e5a079bdee018bd9c0490c861c07fe0
+    SVMP_COMMIT=86729244bcde113be671229f8fc2c00dcc999c6b
     apt-get update -qq && apt-get install -y -q \
         build-essential cmake git wget ca-certificates pkg-config gfortran \
         python3 python3-pip python3-venv python3-dev \
@@ -31,7 +30,7 @@ From: ubuntu:22.04
         libvtk9-dev libxml2-dev libxslt-dev libpetsc-real-dev
     INSTALL_PREFIX=/usr/local
 
-    # PETSc symlinks (cf. docs/REPRODUCE.md)
+    # PETSc symlinks
     D=/usr/lib/petscdir/petsc3.19/x86_64-linux-gnu-real
     mkdir -p /opt/petsc_svmp/lib
     ln -s $D/include /opt/petsc_svmp/include
@@ -51,11 +50,9 @@ From: ubuntu:22.04
     cd /opt/mmg && mkdir build && cd build
     cmake -DUSE_ELAS=ON -DELAS_DIR=/opt/Elas/build -DCMAKE_BUILD_TYPE=Release .. >/dev/null && make -j$CORES >/dev/null && make install >/dev/null
 
-    # svMultiPhysics patché + PETSc
+    # svMultiPhysics, official commit, unmodified + PETSc
     git clone -q https://github.com/SimVascular/svMultiPhysics.git /opt/svMP
     cd /opt/svMP && git checkout -q $SVMP_COMMIT
-    git config user.email build@local && git config user.name build
-    for p in $(ls /opt/patches_src/*.patch | sort); do git am "$p" || { git am --abort; exit 1; }; done
     mkdir build && cd build
     cmake -DSV_USE_MPI=ON -DSV_PETSC_DIR=/opt/petsc_svmp -DCMAKE_BUILD_TYPE=Release ..
     make -j$CORES svmultiphysics

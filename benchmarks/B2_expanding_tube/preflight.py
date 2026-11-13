@@ -42,7 +42,7 @@ def main():
 
     pf.check_disp_file(os.path.join(case, "displacement_boundary.txt"), g, gids_all, PERIOD, pos_fn_mm=pos_fn)
     pf.check(abs(PERIOD / N_SAMPLES - DT) < 1e-12, f"sample spacing ({PERIOD / N_SAMPLES}) == nominal dt ({DT})")
-    # the wall/cap rings must be in the file for both faces (requires patch 0015)
+    # the wall/cap rings must be in the file for both faces (the shared ring nodes carry the wall motion)
     s0 = set(fd["wall"][0]) & set(fd["z0"][0])
     s1 = set(fd["wall"][0]) & set(fd["z1"][0])
     pf.check(len(s0) > 0 and len(s1) > 0, f"shared rings wall/z0 = {len(s0)}, wall/z1 = {len(s1)} nodes")

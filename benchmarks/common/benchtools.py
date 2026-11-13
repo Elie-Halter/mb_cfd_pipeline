@@ -259,8 +259,15 @@ def write_fourier_pressure_file(path, amplitude, period, npts=401, nmodes=64):
 
 # ---------------------------------------------------------------- post-processing
 def result_points_cm(g):
-    """Points of a results_*.vtu in CM (output points are in mm and already deformed)."""
-    return np.asarray(g.points, dtype=float) * MM2CM
+    """Deformed points of a results_*.vtu in CM (output in mm).
+
+    The official svMultiPhysics writes the reference coordinates and the mesh motion in `Displacement`; the deformed
+    position is points + Displacement. Set SVMP_OUTPUT_DEFORMED=1 for output that is already deformed (legacy
+    patched solver)."""
+    p = np.asarray(g.points, dtype=float)
+    if os.environ.get("SVMP_OUTPUT_DEFORMED", "0") != "1" and "Displacement" in g.point_data:
+        p = p + np.asarray(g.point_data["Displacement"], dtype=float)
+    return p * MM2CM
 
 
 def find_results(run_dir):

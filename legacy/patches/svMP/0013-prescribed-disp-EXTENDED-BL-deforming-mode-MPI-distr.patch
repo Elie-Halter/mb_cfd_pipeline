@@ -8,7 +8,6 @@ Capture previously-uncommitted work: extended node set (wall + BL nodes) for
 the Prescribed_displacement BC, broadcast/partition in dist_bc, and supporting
 declarations.
 
-Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
 ---
  Code/Source/solver/ComMod.h       |  6 ++++
  Code/Source/solver/distribute.cpp | 37 +++++++++++++++++++++--

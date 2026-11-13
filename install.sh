@@ -8,7 +8,7 @@
 #  2. Commons (ISCDtoolbox)
 #  3. LinearElasticity / Elas (ISCDtoolbox)
 #  4. MMG3D with USE_ELAS=ON
-#  5. svMultiPhysics from source with the patches
+#  5. svMultiPhysics from source (official release, unmodified)
 #  6. Python dependencies (numpy, scipy, meshio, vtk, pyyaml)
 #  7. LD_LIBRARY_PATH configuration
 # ==============================================================================
@@ -24,8 +24,8 @@ INSTALL_PREFIX="$HOME"
 BUILD_DIR="$HOME/build_mb_cfd"
 LOG_FILE="$SCRIPT_DIR/install.log"
 
-# Official svMP commit the patches apply on
-SVMP_BASE_COMMIT="97ef51223e5a079bdee018bd9c0490c861c07fe0"
+# Official svMultiPhysics commit used for the paper (built unmodified)
+SVMP_BASE_COMMIT="86729244bcde113be671229f8fc2c00dcc999c6b"
 
 # Colors
 RED='\033[0;31m'
@@ -236,7 +236,7 @@ else
 fi
 
 # ------------------------------------------------------------------------------
-# Step 5: svMultiPhysics from source with patches
+# Step 5: svMultiPhysics from source (official, unmodified)
 # ------------------------------------------------------------------------------
 section "Step 5/7: svMultiPhysics"
 
@@ -257,26 +257,8 @@ else
     git fetch --quiet
     git checkout --quiet "$SVMP_BASE_COMMIT"
 
-    # Configure git for git am
-    git config user.email "install@local" || true
-    git config user.name "MB-CFD installer" || true
-
-    log "Applying patches..."
-    PATCHES_DIR="$SCRIPT_DIR/patches/svMP"
-    if [ ! -d "$PATCHES_DIR" ]; then
-        err "Patches directory not found: $PATCHES_DIR"
-    fi
-
-    # Reset in case a previous am failed
-    git am --abort 2>/dev/null || true
-
-    for patch in "$PATCHES_DIR"/*.patch; do
-        log "  -> $(basename $patch)"
-        if ! git am --quiet "$patch"; then
-            err "Patch failed: $(basename $patch). Make sure you are on the correct base commit."
-        fi
-    done
-    ok "Patches applied"
+    # The official solver is used as released. The patches of versions <= 0.3 are kept in
+    # legacy/patches/svMP for reference only and are NOT applied.
 
     # PETSc/GAMG (required for the moving-boundary mesh equation): svMP links -lpetsc,
     # apt provides libpetsc_real.so -> build a local symlink dir that svMP expects.

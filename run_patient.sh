@@ -13,7 +13,9 @@
 #       Dir 0 on every cap, wall Prescribed_displacement), inflow file with the
 #       sign and period checks
 #    4. FB run (rigid wall), gate G2 on the outlet flow split
-#    5. MB run (wall prescribed, interior moved by the solver's mesh equation)
+#    5. MB run (wall prescribed, interior moved by the solver's mesh equation): the MB XML is
+#       converted by tools/to_official_solver.py into the input of the official, unmodified
+#       svMultiPhysics (FSI equation with a fluid domain + mesh equation)
 #    6. post-processing, 7. FB vs MB comparison
 #  STOPS at two human GATES: (G1) solver-safe pinned morph, (G2) MRI flow split.
 #  With REF_IMAGE (and REF_SEG) set, step 1 first checks that REF_STL sits on the image at
@@ -56,8 +58,9 @@ MESH="$WORK/mesh/mesh-complete.mesh.vtu"
 SURF="$WORK/mesh/mesh-surfaces"
 REG_DIR="$WORK/registration"                  # reg_*.npy from morph/pipeline.py
 PIN_DIR="$WORK/pinned_morph"                  # EXTENDED all-node file of the pinned morph
-WALL_DISP="$WORK/wall_displacement.txt"       # STANDARD wall-only file given to the solver
+WALL_DISP="$WORK/wall_displacement.txt"       # STANDARD wall-only file (authoring format)
 FB_DIR="$RUNROOT/FB_${PATIENT}"; MB_DIR="$RUNROOT/MB_${PATIENT}"
+MB_RES="$MB_DIR/${NPROCS}-procs_deformed"       # MB results on the deformed meshes (tools/deform_vtu.py)
 FB_XML="$WORK/${PATIENT}_FB.xml";  MB_XML="$WORK/${PATIENT}_MB.xml"
 if [ "$DRY" -eq 1 ]; then
   XML_DIR="${DRYRUN_XML_DIR:-$(mktemp -d)}"; mkdir -p "$XML_DIR"
@@ -175,22 +178,27 @@ fi
 
 # --- 5. MB RUN (wall prescribed, interior moved by the mesh equation) -------
 if [ "$STEP" -le 5 ]; then
-  say "5/7 MB run (wall-only prescribed displacement, caps pinned)"
+  say "5/7 MB run (wall-only prescribed displacement, caps pinned; official solver input)"
+  MB_XML_OFF="${MB_XML%.xml}_official.xml"
+  run "$PY" "$REPO/tools/to_official_solver.py" "$MB_XML" "$MB_XML_OFF" "$MB_DIR/disp_official"
   if [ "$DRY" -eq 1 ]; then
-    echo "+ RUNDIR=$MB_DIR SVMP_NPROCS=$NPROCS SVMP_BIN=$SVMP_BIN bash $REPO/run_MB_aniso.sh $MB_XML | tee $MB_DIR/mb.log"
+    echo "+ RUNDIR=$MB_DIR SVMP_NPROCS=$NPROCS SVMP_BIN=$SVMP_BIN bash $REPO/run_MB_aniso.sh $MB_XML_OFF | tee $MB_DIR/mb.log"
   else
     RUNDIR="$MB_DIR" SVMP_NPROCS="$NPROCS" SVMP_BIN="$SVMP_BIN" \
-      bash "$REPO/run_MB_aniso.sh" "$MB_XML" | tee "$MB_DIR/mb.log"
+      bash "$REPO/run_MB_aniso.sh" "$MB_XML_OFF" | tee "$MB_DIR/mb.log"
   fi
+  # the official solver writes the reference coordinates + Displacement; the post-processing tools
+  # work on the deformed meshes
+  run "$PY" "$REPO/tools/deform_vtu.py" "$MB_DIR/${NPROCS}-procs" "$MB_RES"
   echo "  Check the closed-boundary flux (tools/closed_flux.py) and the CFL at peak systole."
 fi
 
 # --- 6. POST-PROCESSING + 7. FB vs MB COMPARISON ----------------------------
 if [ "$STEP" -le 6 ]; then
   say "6/7 hemodynamic indices (TAWSS/OSI/helicity) for FB and MB"
-  for C in "FB:$FB_DIR" "MB:$MB_DIR"; do
+  for C in "FB:$FB_DIR/${NPROCS}-procs" "MB:$MB_RES"; do
     name="${C%%:*}"; dir="${C##*:}"
-    run "$PY" "$REPO/tools/hemo_indices.py" "$dir/${NPROCS}-procs" --wall "$SURF/wall.vtp" \
+    run "$PY" "$REPO/tools/hemo_indices.py" "$dir" --wall "$SURF/wall.vtp" \
         --cycle-start "$CYC0" --cycle-end "$CYC1" \
         --out-prefix "$WORK/${name}_${PATIENT}_"
   done
@@ -199,7 +207,7 @@ if [ "$STEP" -le 7 ]; then
   say "7/7 FB vs MB COMPARISON"
   run "$PY" "$REPO/tools/compare_FB_MB.py" \
      --fb "$FB_DIR/${NPROCS}-procs" "$SURF/wall.vtp" "$CYC0" "$CYC1" \
-     --mb "$MB_DIR/${NPROCS}-procs" "$SURF/wall.vtp" "$CYC0" "$CYC1" \
+     --mb "$MB_RES" "$SURF/wall.vtp" "$CYC0" "$CYC1" \
      --out-prefix "$WORK/cmp_${PATIENT}_"
   if [ "$DRY" -eq 1 ]; then
     echo -e "\n[$PATIENT] dry run done (nothing executed except the XML generation: $XML_DIR)."

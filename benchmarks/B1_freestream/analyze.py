@@ -2,14 +2,13 @@
 """
 B1 -- free-stream analysis: max|u - U|/U and the L2 norm of div(u) at every saved step.
 
-Usage: python3 analyze.py <run_dir> [--label patched|nogcl] [--csv out.csv]
+Usage: python3 analyze.py <run_dir> [--label official] [--csv out.csv]
   <run_dir> holds results_###.vtu (directly or under <n>-procs/).
 
-Pass criterion: worst-case max|u - U|/U < 1e-4. Reference value (patched solver, 4 ranks,
-200 steps): 1.69e-6, the floor of the iterative linear solver. The binary WITHOUT patch 0014
-gives the same value: a uniform field makes every term of the nodal ALE residual vanish
-whatever the integration geometry, so this test is necessary but does not discriminate the
-DGCL fix -- B2 does.
+Pass criterion: worst-case max|u - U|/U < 1e-4. Reference value (official svMultiPhysics
+86729244, 4 ranks, 200 steps): 1.69e-6, the floor of the iterative linear solver. A uniform field makes every
+term of the nodal ALE residual vanish whatever the integration geometry, so this test is necessary but not
+sufficient for the discrete geometric conservation law -- B2 checks it.
 """
 import argparse
 import csv
@@ -27,7 +26,7 @@ from params import U_INF, DT, PASS_MAX_REL_ERR
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("run_dir")
-    ap.add_argument("--label", default="patched")
+    ap.add_argument("--label", default="official")
     ap.add_argument("--dt", type=float, default=DT)
     ap.add_argument("--csv", help="output CSV (default <run_dir>/b1_metrics_<label>.csv)")
     a = ap.parse_args()

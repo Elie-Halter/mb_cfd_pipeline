@@ -1,16 +1,15 @@
 # ============================================================================
-#  Dockerfile — image reproductible du pipeline MB-CFD (solveur patché + outils)
-#  Tout ce qu'il faut pour LANCER les simulations sur n'importe quel PC.
+#  Dockerfile -- reproducible image of the MB-CFD pipeline (official svMultiPhysics + tools)
+#  Everything needed to RUN the simulations on any PC.
 #
 #  Build :   docker build -t mbcfd .
 #  Run   :   docker run --rm -it -v /chemin/donnees:/data mbcfd
-#            (les données patient ne sont PAS dans l'image — montées via -v)
-#  Voir docs/PORTABLE_SETUP.md.
+#            (patient data are NOT in the image; mount them with -v)
 # ============================================================================
 FROM ubuntu:22.04
 ENV DEBIAN_FRONTEND=noninteractive
 ARG CORES=4
-ARG SVMP_COMMIT=97ef51223e5a079bdee018bd9c0490c861c07fe0
+ARG SVMP_COMMIT=86729244bcde113be671229f8fc2c00dcc999c6b
 
 # --- 1. dépendances système (= install.sh) + PETSc (apt) + gfortran ---------
 RUN apt-get update -qq && apt-get install -y -q \
@@ -47,12 +46,9 @@ RUN git clone --quiet https://github.com/MmgTools/mmg.git /opt/mmg \
  && cmake -DUSE_ELAS=ON -DELAS_DIR=/opt/Elas/build -DCMAKE_BUILD_TYPE=Release .. >/dev/null \
  && make -j$CORES >/dev/null && make install >/dev/null
 
-# --- 4. svMultiPhysics @ commit figé + nos patches + PETSc ------------------
-COPY patches/svMP/*.patch /opt/patches/
+# --- 4. svMultiPhysics @ pinned official commit (unmodified) + PETSc --------
 RUN git clone --quiet https://github.com/SimVascular/svMultiPhysics.git /opt/svMP \
  && cd /opt/svMP && git checkout --quiet $SVMP_COMMIT \
- && git config user.email build@local && git config user.name build \
- && for p in $(ls /opt/patches/*.patch | sort); do echo "git am $p"; git am "$p" || { git am --abort; exit 1; }; done \
  && mkdir build && cd build \
  && cmake -DSV_USE_MPI=ON -DSV_PETSC_DIR=/opt/petsc_svmp -DCMAKE_BUILD_TYPE=Release .. \
  && make -j$CORES svmultiphysics \
@@ -66,6 +62,6 @@ COPY . /opt/repo
 ENV LD_LIBRARY_PATH=/usr/local/lib:/opt/petsc_svmp/lib:${LD_LIBRARY_PATH}
 ENV SVMP_BIN=/usr/local/bin/svmultiphysics
 WORKDIR /opt/repo
-# GAMG (éq. maillage MB) — voir run_MB_aniso.sh ; toujours exporter ceci pour un run MB :
+# GAMG for the MB mesh equation (see run_MB_aniso.sh); always export this for an MB run:
 ENV PETSC_OPTIONS="-pc_type gamg -pc_gamg_type agg"
 CMD ["/bin/bash"]

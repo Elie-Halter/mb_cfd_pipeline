@@ -8,10 +8,12 @@ Benchmark-suite tests that need neither the solver nor any data:
 Run:  python3 tests/test_benchmarks.py
 """
 import os
+import re
 import shutil
 import subprocess
 import sys
 import tempfile
+import xml.etree.ElementTree as ET
 import numpy as np
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -88,6 +90,19 @@ def main():
                            "--xml", os.path.join(tmp, "b1.xml")])
         check("B1 generator -> pre-flight passes (mesh, motion, BC files, IC, XML)",
               rc == 0 and "all checks pass" in out, out[-600:])
+        # conversion to the official solver input (FSI fluid + mesh, Dir/General walls)
+        if rc == 0:
+            off = os.path.join(tmp, "b1_official.xml")
+            rc2, out2 = run([os.path.join(ROOT, "tools", "to_official_solver.py"), os.path.join(tmp, "b1.xml"),
+                             off, os.path.join(tmp, "b1_disp")])
+            ok2 = rc2 == 0 and os.path.exists(off)
+            if ok2:
+                x = open(off).read()
+                x_nc = re.sub(r"<!--.*?-->", "", x, flags=re.S)
+                ok2 = ('type="FSI"' in x_nc and "Prescribed_displacement" not in x_nc
+                       and "Temporal_and_spatial_values_file_path" in x_nc)
+                ET.fromstring(x)
+            check("B1 input -> official solver input (to_official_solver.py)", ok2, out2[-600:])
         b2 = os.path.join(tmp, "B2")
         rc, out = run([os.path.join(BENCH, "B2_expanding_tube", "gen_case.py"), "--out", b2])
         if rc == 0:

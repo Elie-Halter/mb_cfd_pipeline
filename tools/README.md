@@ -6,6 +6,7 @@ Every script prints its full usage with `--help` (or in its docstring). Grouped 
 
 | Script | Role | Usage |
 |--------|------|-------|
+| `gen_mesh_gmsh.py` | Open lumen wall (`wall_open.stl`) + vessel-end centres (`cuts.json`) → plane caps and all-tet Gmsh mesh in the svMultiPhysics mesh-complete format (GID/EID/FaceID); `MESH_MIN`/`MESH_MAX`/`MESH_CURV` set the sizes (defaults = medium mesh of the paper) | `python3 gen_mesh_gmsh.py GEO_DIR OUT_DIR` |
 | `cohort_cap_label.py` | Caps and labels the openings of a raw open lumen surface: closed STL + reference cap surfaces `asc/desc/btca/lcca/lsa` (3 smallest openings = branches, larger of the 2 largest = inlet, branches named by their order along the arch); QC render | `python3 cohort_cap_label.py RAW.(stl\|vtp) OUT_DIR` |
 | `build_iso_mesh.py` | Reference STL → all-tet mesh + surfaces (GID/EID/FaceID). Uniform, or **radius-based** (`--rbm N`: ~N elements across the local diameter → finer small branches, no SimVascular) | `python3 build_iso_mesh.py <stl> <surfaces> <out> [hmax] [--rbm 6 --hmin 0.2 --hmax 0.8]` |
 | `check_geometry_vs_image.py` | Pre-flight: does the lumen surface sit on the image it was segmented on, **at the right size**? Field of view, wall contrast, and against the segmentation a rigid vs a similarity fit: FAIL if the surface needs a scale (rescaled in another software) or a large rigid correction (moved, mirrored RAS/LPS) | `python3 check_geometry_vs_image.py lumen.stl --image phase.nii.gz --seg seg.nrrd [--label N] [--ras]` |
@@ -18,6 +19,7 @@ Every script prints its full usage with `--help` (or in its docstring). Grouped 
 | `make_inlet_flow.py` | Inlet flow file with the solver's sign and period: antegrade-positive MRI waveform → **negative** flow rate (positive = outflow, see CONVENTIONS.md §1), resampled at the time step over the whole run (exact period) | `python3 make_inlet_flow.py mri_inlet.csv flow_rate.txt --t-cycle T --nsteps N [--dt 0.001]` |
 | `check_inlet_sign.py` | Pre-flight: refuses an inlet file that would impose an outflow (exit 2) or whose period differs from the cycle (exit 3) | `python3 check_inlet_sign.py flow_rate.txt --t-cycle T [--nsteps N]` |
 | `calibrate_rcr.py` | RCR Windkessel calibration on the MRI flow split (Opt 3) | `python3 calibrate_rcr.py --flow <inlet.txt> --map <MAP>` |
+| `to_official_solver.py` | Moving-wall XML in the authoring format (`Prescribed_displacement` wall) → input of the official, unmodified svMultiPhysics: FSI equation with a fluid domain + mesh equation, Dir/General wall with one displacement file per prescribed face | `python3 to_official_solver.py MB.xml MB_official.xml disp_dir/` |
 | `make_patient_xml.py` | Derives a case's FB/MB XML files from `FB_example.xml` / `MB_example.xml` (paths repointed, comments kept); refuses an MB template without `Dir 0` caps in the mesh equation or an EXTENDED displacement file | `python3 make_patient_xml.py --fb-template … --mb-template … --mesh … --surf … --disp … --fb-out … --mb-out …` |
 
 ## Wall motion
@@ -53,6 +55,7 @@ The two wall chains themselves are in `morph/` and `chain_image/`.
 | Script | Role | Usage |
 |--------|------|-------|
 | `checkpoints.py` | Measurements at fixed planes along the aorta: diameter, flow rate, velocity | `python3 checkpoints.py <vtu\|dir> checkpoints.json [--out m.csv]` ; `--make-template <centerline.vtp> N` |
+| `deform_vtu.py` | Official solver output (reference points + `Displacement`) → copies in the deformed configuration, for every geometric post-processing | `python3 deform_vtu.py <run>/4-procs <run>/4-procs_deformed` |
 | `hemo_indices.py` | TAWSS / OSI / Helicity over the last cycle (**GID-1** mapping, deformation-proof; wall VTP + volume VTU) | `python3 hemo_indices.py <dir> --wall wall.vtp --cycle-start <start> --cycle-end <end>` |
 | `volume_weighted_means.py` | Lumen-mean speed, helicity density, LNH (signed and absolute) and strongly helical volume shares, **volume-weighted** (nodal weight = ¼ of the adjacent tetrahedra volumes) next to plain nodal means | `python3 volume_weighted_means.py results_*.vtu [--csv out.csv]` |
 | `compare_FB_MB.py` | **FB vs MB comparison** (ΔTAWSS/ΔOSI, spatial correlation) + wall VTP for figures | `python3 compare_FB_MB.py --fb <dir> wall.vtp <start> <end> --mb <dir> wall.vtp <start> <end>` |
@@ -64,6 +67,8 @@ The two wall chains themselves are in `morph/` and `chain_image/`.
 ## Units
 Mesh coordinates in mm; solver works in cm (`Mesh_scale_factor 0.1`). Velocity cm/s, pressure
 dyne/cm², flow rate mL/s. Flow split = per-triangle integration `Q = Σ(v_tri·area_vec)/100`.
-Result VTUs store the deformed points in mm and the velocity in cm/s. Wall→volume mapping uses
+The official solver's result VTUs store the reference points in mm, the mesh motion in `Displacement`
+(mm) and the velocity in cm/s; the tools below expect deformed points, so run `deform_vtu.py` on a
+moving-wall run first (`run_patient.sh` does it). Wall→volume mapping uses
 GlobalNodeID−1 (the results VTU preserves mesh order), not a positional KDTree — required for the
 moving boundary. Inlet flow rates are negative (solver convention, CONVENTIONS.md §1).

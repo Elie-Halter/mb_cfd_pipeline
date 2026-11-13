@@ -3,9 +3,9 @@
 B2 -- expanding-tube analysis: moving-wall no-slip, induced flow rate, discrete mass balance,
 and amplitude/phase of the wall velocity.
 
-Usage: python3 analyze.py <run_dir> --case <case_dir> [--dt 0.005] [--label patched|nogcl]
+Usage: python3 analyze.py <run_dir> --case <case_dir> [--dt 0.005] [--label official]
 
-For every snapshot results_###.vtu (output points are already deformed, mm -> cm):
+For every snapshot results_###.vtu (deformed points = points + Displacement, mm -> cm):
   - Q_z0, Q_z1 = flux of u through the caps, Q_wall = flux through the wall (P1 exact,
     outward normals);
   - analytic dV/dt = 2 pi R L dR/dt with R(t) = R0 s(t).
@@ -15,12 +15,11 @@ Verdicts on the established regime t >= 0.5 s (the fluid starts from rest):
   (b) induced flow: max|Q_z0 + Q_z1 + dV/dt| / max|dV/dt|                    -> < 2 %
   (c) discrete mass balance through the WHOLE closed boundary:
       max|Q_z0 + Q_z1 + Q_wall| / max|dV/dt|                                 -> < 2 %
-      (the discriminating DGCL observable: 3.3e-6 patched vs 6.66e-2 without patch 0014)
+      (the discrete geometric conservation law observable)
   (d) amplitude and phase of the mean radial wall velocity vs R0 ds/dt over [1.0, 1.5] s
       (fundamental fitted by least squares)                                  -> +-5 %, < 5 deg
-Reference values (patched solver, 4 ranks, dt = 5 ms): (a) 2.68e-6 cm/s, (b) 1.64 %,
-(c) 3.3e-6, (d) 1.000 / +0.6 deg. Without patch 0014: (b) 7.36 %, (c) 6.66e-2, (a) and (d)
-unchanged.
+Reference values (official svMultiPhysics 86729244, FSI fluid + mesh, 4 ranks, dt = 5 ms): (a) 2.68e-6 cm/s,
+(b) 1.64 %, (c) 3.3e-6, (d) 1.000 / +0.6 deg.
 """
 import argparse
 import csv
@@ -128,7 +127,7 @@ def main():
     ap.add_argument("run_dir")
     ap.add_argument("--case", required=True, help="case directory written by gen_case.py")
     ap.add_argument("--dt", type=float, default=DT)
-    ap.add_argument("--label", default="patched")
+    ap.add_argument("--label", default="official")
     ap.add_argument("--csv", help="output CSV (default <run_dir>/b2_metrics_<label>.csv)")
     a = ap.parse_args()
     rows = series(a.run_dir, os.path.abspath(a.case), a.dt)
@@ -144,9 +143,9 @@ def main():
     print(f"[B2] (a) moving-wall no-slip (t >= {NOSLIP_FROM} s): {v['noslip']:.3e} cm/s "
           f"({'PASS' if ok_a else 'FAIL'} < {PASS_NOSLIP_ABS:g}; reference 2.68e-6)")
     print(f"[B2] (b) induced cap flow vs analytic: {v['flow']:.3%} "
-          f"({'PASS' if ok_b else 'FAIL'} < {PASS_FLOW_REL:.0%}; reference 1.64 % patched, 7.36 % without 0014)")
+          f"({'PASS' if ok_b else 'FAIL'} < {PASS_FLOW_REL:.0%}; reference 1.64 %)")
     print(f"[B2] (c) closed-boundary mass balance / max|dV/dt|: {v['mass']:.3e} "
-          f"({'PASS' if ok_c else 'FAIL'} < {PASS_MASS_REL:.0%}; reference 3.3e-6 patched, 6.66e-2 without 0014)")
+          f"({'PASS' if ok_c else 'FAIL'} < {PASS_MASS_REL:.0%}; reference 3.3e-6)")
     ok = ok_a and ok_b and ok_c
     if "ur_amp" in v:
         ok_d = abs(v["ur_amp"] - 1) <= 0.05 and abs(v["ur_phase_deg"]) <= 5.0

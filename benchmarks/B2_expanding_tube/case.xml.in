@@ -93,7 +93,6 @@
 </Add_equation>
 
 <Add_equation type="mesh">
-  <Mesh_stiffness_exponent> 2.0 </Mesh_stiffness_exponent>
 
   <Coupled> true </Coupled>
   <Min_iterations> 1 </Min_iterations>

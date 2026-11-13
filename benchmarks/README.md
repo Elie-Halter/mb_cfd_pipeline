@@ -1,21 +1,24 @@
 # benchmarks/ — synthetic analytic verification suite
 
-Three benchmarks with analytic solutions that exercise the patched solver on synthetic
+Three benchmarks with analytic solutions that exercise the official svMultiPhysics on synthetic
 geometries. They need **no patient data**: every mesh, motion, boundary condition and initial
 condition is generated from the parameters in each `params.py`. They are the verification
 benchmarks of Supplementary Section S1 (Table S3) of the companion paper.
 
-| Case | Verifies | Analytic solution | Pass criterion | Reference result (patched) |
+| Case | Verifies | Analytic solution | Pass criterion | Reference result (official solver) |
 |---|---|---|---|---|
-| **B1** free stream | free-stream preservation on a moving mesh | u = (U,0,0), uniform p, for any mesh motion | max\|u−U\|/U < 1e−4 | 1.69e−6 (also 1.69e−6 without patch 0014: not discriminating) |
-| **B2** expanding tube | moving-wall no-slip, motion-driven flow, **discrete mass balance (DGCL)** | R(t) = R0 s(t), ΣQ_caps = −dV/dt = −2πRL dR/dt, u_r(R) = dR/dt | no-slip < 1e−4 cm/s; flow < 2 %; mass < 2 % | 2.68e−6 cm/s; 1.64 %; **3.3e−6** (6.66e−2 without 0014: 4.3 orders) |
-| **B2t** (option `--full`) | temporal order of the discrete mass residual | — | observed p ≥ 2 | p = 2.88 (dt 5 → 2.5 ms), then 3.85 |
+| **B1** free stream | free-stream preservation on a moving mesh | u = (U,0,0), uniform p, for any mesh motion | max\|u−U\|/U < 1e−4 | 1.69e−6 |
+| **B2** expanding tube | moving-wall no-slip, motion-driven flow, **discrete mass balance (DGCL)** | R(t) = R0 s(t), ΣQ_caps = −dV/dt = −2πRL dR/dt, u_r(R) = dR/dt | no-slip < 1e−4 cm/s; flow < 2 %; mass < 2 % | 2.68e−6 cm/s; 1.64 %; **3.3e−6** |
+| **B2t** (option `--full`) | temporal order of the discrete mass residual | — | observed p ≥ 2 | p = 2.94 (dt 5 → 2.5 ms), then 5.2 |
 | **B3** Womersley | unsteady velocity at α ≈ 12.9 (aortic) | Womersley u_z(r,t), Q(t) | flow amplitude ±5 %, phase < 5° | 0.978, +2.6° (grid g1; 1.015, +4.3° on g2) |
 | **B3r** (option `--full`) | profile error under refinement | — | core L2 error decreases monotonically | 28.2 % → 15.7 % → 11.3 % (g1 → g2 → g3) |
 
-All reference values were obtained with 4 MPI ranks and the solver built by `install.sh`
-(svMultiPhysics `97ef512` + the fifteen patches in `patches/svMP/`). Iterative-solver values such
-as B1's 1.69e−6 can differ in the last digits with another rank count or platform; the pass
+Reference values: official svMultiPhysics `86729244`, unmodified, built by `install.sh`; the
+moving-mesh cases (B1, B2) run through the FSI equation with a fluid domain plus the mesh equation, after
+`tools/to_official_solver.py` (done by `run_all.sh`). B2t was run on 2 MPI ranks, the other cases on 2–4;
+the g3 grid of B3r (rigid wall) was run with the legacy build of versions <= 0.3, whose rigid-wall solver
+is the upstream one. Iterative-solver values such as B1's 1.69e−6 can differ in the last digits with
+another rank count or platform; the pass
 criteria leave orders of magnitude of margin. The analysis scripts in this directory were run
 on the archived reference runs and reproduce every value quoted here; `gen_case.py` regenerates
 the reference B1 and B2 meshes node for node (gmsh 4.15).
@@ -33,18 +36,6 @@ The solver is `$SVMP_BIN` (default `~/svmp_bin/svmultiphysics`, where `install.s
 Cases and runs go to `benchmarks/_out/` (git-ignored; `--out DIR` to change). Runs are
 sequential, and the script refuses to start the solver while another `svmultiphysics` process
 is running. It ends with a PASS/FAIL summary and exits non-zero if any check fails.
-
-### DGCL contrast (patch 0014 on/off)
-
-```bash
-bash benchmarks/build_nogcl.sh                     # same commit, all patches except 0014
-SVMP_BIN_NOGCL=~/svmp_bin/svmultiphysics_nogcl bash benchmarks/run_all.sh --cases "B1 B2"
-```
-
-With `SVMP_BIN_NOGCL` set, B1 and B2 are also run with the contrast binary and a final table
-reports the contrast. Expected: B1 identical for both binaries (1.69e−6); B2 mass balance
-3.3e−6 (patched) versus 6.66e−2 (without 0014), and induced flow 1.64 % versus 7.36 %;
-no-slip and wall-velocity amplitude unchanged.
 
 ### Per-case scripts
 
@@ -75,10 +66,9 @@ ALE Navier–Stokes equations for any mesh motion: Dirichlet (General, full vect
 
 The free stream is preserved to the floor of the iterative linear solver (~1e−7 per step,
 1.69e−6 worst case), not to machine precision: tightening the tolerances makes the FSILS
-Navier–Stokes solve singular on the pressure mode under mesh motion. The binary without patch
-0014 gives the same value — for a uniform field every term of the nodal ALE residual vanishes
-whatever the integration geometry — so B1 is a necessary test that does not discriminate the
-DGCL fix.
+Navier–Stokes solve singular on the pressure mode under mesh motion. For a uniform field every
+term of the nodal ALE residual vanishes whatever the integration geometry, so B1 is necessary but
+not sufficient for the discrete geometric conservation law; B2 checks it.
 
 ### B2 — analytically expanding tube (`B2_expanding_tube/`)
 
@@ -93,15 +83,13 @@ both caps, fluid at rest initially, 1.5 periods at dt = 5 ms. Verdicts on t ≥ 
 - (b) induced flow: max\|ΣQ_caps + dV/dt\| / max\|dV/dt\| — 1.64 %, dominated by the polygonal
   volume deficit of the faceted cylinder (spatial; invariant with dt);
 - (c) discrete mass balance through the whole closed boundary,
-  max\|ΣQ_caps + Q_wall\| / max\|dV/dt\| — **3.3e−6** with patch 0014, **6.66e−2** without:
-  the discriminating DGCL result;
+  max\|ΣQ_caps + Q_wall\| / max\|dV/dt\| — **3.3e−6**: the discrete geometric conservation
+  law holds;
 - (d) amplitude/phase of the mean radial wall velocity against R0 ds/dt — 1.000, +0.6°.
 
 `temporal_order.py` (run by `--full`) repeats the run at dt/2 and dt/4 with the same motion:
-the mass residual falls as 3.31e−6 → 4.49e−7 → 3.12e−8 (observed order 2.88, then 3.85), and
-is unchanged (3.306e−6) when the fluid tolerances are tightened ×50 — a discretisation error,
-not an iterative floor. The wall/cap rings must be prescribed from both sides, which requires
-patch 0015.
+the mass residual falls as 3.30e−6 → 4.30e−7 → 1.18e−8 (observed order 2.94, then 5.2) — a
+discretisation error, not an iterative floor. The wall/cap rings are prescribed from both sides.
 
 ### B3 — Womersley flow (`B3_womersley/`)
 

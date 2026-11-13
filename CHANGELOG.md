@@ -4,22 +4,34 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [semantic versioning](https://semver.org/). Version numbers match `CITATION.cff`.
 
-## [Unreleased]
+## [1.0.0] — unreleased
 
-To be released as 0.3.0 (the version `CITATION.cff` already carries), together with the
-submission of the companion paper.
+To be released with the submission of the companion paper.
+
+### Changed
+- **Official, unmodified svMultiPhysics** (commit `86729244`) instead of the patched build of
+  0.x: `install.sh`, the Dockerfile and the Apptainer recipe build it without patches. The
+  moving wall runs through the FSI equation with a fluid domain only plus the mesh equation;
+  the pipeline keeps writing its moving-wall XML in the authoring format (`Prescribed_displacement`
+  wall) and `tools/to_official_solver.py` converts it (`run_patient.sh` and `benchmarks/run_all.sh`
+  call it before every moving-wall run). The analytic benchmarks give the same results.
+- `MB_example.xml`: production settings of the paper (no mesh stiffening; mesh equation GMRES +
+  PETSc GAMG, up to 4 coupled iterations, tolerance 1e-2).
+- Results of the official solver are on the reference coordinates: `benchmarks/common/benchtools.py`
+  adds `Displacement`, and `run_patient.sh` post-processes the deformed copies (`tools/deform_vtu.py`).
+- The fifteen solver patches and `benchmarks/build_nogcl.sh` moved to `legacy/` (not applied).
 
 ### Added
+- `tools/to_official_solver.py`, `tools/deform_vtu.py`, `tools/gen_mesh_gmsh.py` (Gmsh meshes of the paper).
 - `tools/check_geometry_vs_image.py`: pre-flight check that the lumen surface used for the mesh
   sits on the patient's image at the right size (rigid vs similarity fit against the
   segmentation; catches a surface rescaled, moved or mirrored between the segmentation and the
   mesher). `run_patient.sh` runs it before meshing when `REF_IMAGE` is set (gate G0, stops on a
   FAIL); synthetic test `tests/test_geometry_check.py`. `SimpleITK` added to `requirements.txt`.
 - `benchmarks/`: synthetic analytic verification suite that needs no patient data — free-stream
-  preservation (B1), analytically expanding tube with the discrete mass balance with and without
-  patch 0014 (B2, plus its temporal order), Womersley flow (B3, plus a refinement study);
-  `run_all.sh` generates, pre-flights, runs and analyses them; `build_nogcl.sh` builds the
-  contrast solver without patch 0014.
+  preservation (B1), analytically expanding tube with the discrete mass balance (B2, plus its
+  temporal order), Womersley flow (B3, plus a refinement study); `run_all.sh` generates,
+  pre-flights, converts, runs and analyses them.
 - `chain_image/`: second wall chain — one segmented phase propagated to every phase by inverted
   B-spline image registration (elastix), periodic smoothing, cap taper, displacement file;
   `tools/phase_subset_wall.py` rebuilds the wall motion from a subset of the phases.

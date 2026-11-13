@@ -10,7 +10,7 @@ Prints the pairwise observed order p = log(E_i/E_{i+1}) / log(h_i/h_{i+1}) and t
 regression over all grids.
 
 Pass criterion used in the paper: the error DECREASES monotonically under refinement.
-Reference values (patched solver, 4 ranks): 28.2 % -> 15.7 % -> 11.3 % on g1/g2/g3 (N = 9322 /
+Reference values (official svMultiPhysics 86729244, 4 ranks): 28.2 % -> 15.7 % -> 11.3 % on g1/g2/g3 (N = 9322 /
 27634 / 88289 nodes), pairwise p = 1.61 then 0.86, global p = 1.22. A formal order ~2 is NOT
 obtained: the Stokes layer (delta ~ 1.1 mm) is thinner than the isotropic element on all three
 grids, so the spatial order is reported as open (mesh-limited), not claimed.

@@ -4,10 +4,10 @@ The second of the two wall-displacement chains. The first (`morph/`) registers a
 surface onto **several segmented phases**. This one needs a lumen segmentation of **a single
 phase**: the motion of every other phase is taken from the images themselves, by deformable
 registration of the time-resolved acquisition (e.g. the 4D-flow anatomy/magnitude images
-reconstructed per cardiac phase). It was used for the 20-phase case of the companion paper
-(Supplementary S3.2).
+reconstructed per cardiac phase). It was used for both cases of the companion paper.
 
-Output: the solver's `Prescribed_displacement` file for the wall, built on the solver mesh's
+Output: the wall displacement file (authoring format, converted for the official solver by
+`tools/to_official_solver.py`), built on the solver mesh's
 own wall nodes. As in production, the interior of the mesh is then moved by the solver's mesh
 equation; nothing here touches interior nodes.
 
@@ -53,9 +53,10 @@ python3 chain_image/write_wall_displacement.py --in wall_taper.npz --mesh mesh/m
 python3 tools/check_inlet_sign.py flow_rate.txt --t-cycle 0.9
 ```
 
-The fluid boundary condition on the wall must be `Prescribed_displacement` with
-`Impose_on_state_variable_integral`, the caps `Dir 0` in the mesh equation, and the inlet flow
-negative (see `CONVENTIONS.md`). `MB_example.xml` shows the solver set-up.
+The fluid boundary condition on the wall must impose the wall velocity
+(`Impose_on_state_variable_integral`), the caps `Dir 0` in the mesh equation, and the inlet flow
+negative (see `CONVENTIONS.md`). `MB_example.xml` shows the set-up in the authoring format;
+`tools/to_official_solver.py` converts it for the official solver.
 
 ## Verification
 

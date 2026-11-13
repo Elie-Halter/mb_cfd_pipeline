@@ -27,9 +27,8 @@ bash install.sh && source ~/.bashrc && bash check_install.sh
 bash tests/run_tests.sh          # no solver, no data: every tool on synthetic cases
 ```
 
-`install.sh` builds MMG, clones svMultiPhysics at the pinned commit `97ef512`, applies the
-fifteen patches of `patches/svMP/` and installs the solver as `~/svmp_bin/svmultiphysics`. There is
-no fork to clone. PETSc (`libpetsc-real-dev`) is needed if the mesh equation uses the GAMG
+`install.sh` builds MMG, clones the official svMultiPhysics at the pinned commit `86729244` and
+builds it unmodified as `~/svmp_bin/svmultiphysics`. There is no fork and no patch. PETSc (`libpetsc-real-dev`) is needed if the mesh equation uses the GAMG
 preconditioner.
 
 ## 2. Verify the solver on the analytic benchmarks
@@ -39,16 +38,15 @@ bash benchmarks/run_all.sh --no-solver     # generate the cases, run every pre-f
 bash benchmarks/run_all.sh                 # free stream, expanding tube, Womersley (~2-3 h, 4 cores)
 ```
 
-Pass criteria and reference values are in [benchmarks/README.md](benchmarks/README.md). The
-discriminating result is the expanding tube's discrete mass balance: 3.3e-6 with patch 0014
-against 6.66e-2 without it (`benchmarks/build_nogcl.sh` builds the contrast solver,
-`SVMP_BIN_NOGCL=... bash benchmarks/run_all.sh --cases "B1 B2"` runs the contrast).
+Pass criteria and reference values are in [benchmarks/README.md](benchmarks/README.md). The moving-mesh
+cases are converted to the official solver's input by `tools/to_official_solver.py` before each run. The
+key result is the expanding tube's discrete mass balance through the closed boundary: 3.3e-6.
 
 ## 3. Reference mesh and boundary data
 
 ```bash
-python3 tools/cohort_cap_label.py lumen_open.stl ref/                 # caps + cap surfaces (or your own)
-python3 tools/build_iso_mesh.py ref/capped.stl ref/mesh-surfaces mesh/ --rbm 6 --hmin 0.2 --hmax 0.8
+python3 tools/gen_mesh_gmsh.py geo/ mesh/      # Gmsh; geo/ = wall_open.stl + cuts.json (paper meshes)
+# alternative: tools/cohort_cap_label.py + tools/build_iso_mesh.py (MMG + TetGen, radius-based sizes)
 python3 tools/make_inlet_flow.py mri_inlet.csv inflow.txt --t-cycle T --nsteps N   # NEGATIVE inflow
 python3 tools/check_inlet_sign.py inflow.txt --t-cycle T --nsteps N
 python3 tools/calibrate_rcr.py --flow mri_inlet.csv --map MAP          # RCR per outlet on the MRI split
@@ -123,14 +121,19 @@ table below or an EXTENDED displacement file. The MB case used in production has
 |---|---|---|
 | fluid | inlet | `Dirichlet`, `Unsteady`, flow-rate file (negative), `Impose_flux true` |
 | fluid | outlets | `Neumann`, `RCR` (from `calibrate_rcr.py`) |
-| fluid | wall | `Prescribed_displacement` + `Impose_on_state_variable_integral true` (fluid velocity = wall velocity; **not** `Dirichlet 0`, CONVENTIONS.md §3) |
-| mesh | wall | `Prescribed_displacement`, the STANDARD wall file of §4 |
+| fluid | wall | `Prescribed_displacement` + `Impose_on_state_variable_integral true` (fluid velocity = wall velocity; **not** `Dirichlet 0`, CONVENTIONS.md §3) — authoring format |
+| mesh | wall | `Prescribed_displacement`, the STANDARD wall file of §4 — authoring format |
 | mesh | every cap | `Dir`, value 0 (pinned) |
 
-The mesh equation (`Mesh_stiffness_exponent 2`) moves the interior. Its linear solver was FSILS
-for one production case and PETSc with the GAMG preconditioner for the other; GAMG is selected
-through `PETSC_OPTIONS="-pc_type gamg -pc_gamg_type agg"`, which `run_MB_aniso.sh` and
-`tools/svmp_run.sh` export. The FB case uses the same mesh with a rigid no-slip wall.
+These two `Prescribed_displacement` conditions are the pipeline's authoring format.
+`python3 tools/to_official_solver.py MB.xml MB_official.xml disp_official/` writes the input of the
+official solver: FSI equation with a fluid domain plus the mesh equation, wall `Dir` + `General` with a
+displacement file (`Temporal_and_spatial_values_file_path`). The mesh equation (linear elasticity, no
+stiffening) moves the interior; its linear solver is GMRES with PETSc and the GAMG preconditioner,
+selected through `PETSC_OPTIONS="-pc_type gamg -pc_gamg_type agg"`, which `run_MB_aniso.sh` and
+`tools/svmp_run.sh` export. The official solver writes the reference coordinates and the mesh motion in
+`Displacement`; `tools/deform_vtu.py` writes the deformed meshes. The FB case uses the same mesh with a
+rigid no-slip wall.
 
 ```bash
 tools/svmp_run.sh FB.xml runs/FB fb 4       # one solver run at a time on a machine
@@ -170,7 +173,7 @@ python3 tools/gci.py --mesh M1.vtu M2.vtu M3.vtu --wall M1_wall.vtp M2_wall.vtp 
 ```
 
 Wall-to-volume mapping uses GlobalNodeID − 1 (the result files keep the mesh order), never a
-positional nearest-neighbour search, which is wrong on a moving boundary. Result files store the
-deformed points in mm and the velocity in cm/s. All tools are listed in
-[tools/README.md](tools/README.md); the solver patches and their role in
-[patches/svMP/README.md](patches/svMP/README.md).
+positional nearest-neighbour search, which is wrong on a moving boundary. The official solver's result
+files store the reference points in mm, the mesh motion in `Displacement` (mm) and the velocity in cm/s;
+`tools/deform_vtu.py` adds the displacement. All tools are listed in [tools/README.md](tools/README.md).
+The solver patches of versions <= 0.3 are kept, unused, in [legacy/](legacy/README.md).

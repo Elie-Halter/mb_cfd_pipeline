@@ -13,7 +13,6 @@ Fix : mapper TOUS les noeuds de face ; les deux faces prescrivent la meme valeur
 fichier (continue) aux anneaux, aucun conflit. Compat wall-only preservee.
 Trouve+corrige par auditabilite (2e bug apres GCL et inlet Fourier).
 
-Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>
 ---
  Code/Source/solver/read_files.cpp | 25 ++++++++-----------------
  1 file changed, 8 insertions(+), 17 deletions(-)

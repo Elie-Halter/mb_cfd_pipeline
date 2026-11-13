@@ -12,7 +12,7 @@ On the LAST complete cycle present in the results:
     near-wall resolution limit of isotropic P1 grids and decreases under refinement, see
     refinement.py);
   - periodicity: the same L2 on the previous cycle.
-Reference values (patched solver, 4 ranks): grid g1 (~38k tets) amplitude 0.978, phase +2.6 deg,
+Reference values (official svMultiPhysics 86729244, 4 ranks): grid g1 (~38k tets) amplitude 0.978, phase +2.6 deg,
 L2 27.5 %; grid g2 (~122k) amplitude 1.015, phase +4.3 deg, L2 13.9 %.
 """
 import argparse

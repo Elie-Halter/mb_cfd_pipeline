@@ -16,6 +16,11 @@
   mesh is moved by the mesh equation at every step. The rigid-wall counterpart is FB_example.xml,
   identical except for the wall boundary condition and the absence of the mesh equation.
   tools/make_patient_xml.py repoints the paths and the number of steps for a case.
+
+  AUTHORING FORMAT. The wall is written here as a Prescribed_displacement boundary condition with
+  one positions file; tools/to_official_solver.py turns this file into the input of the official,
+  unmodified svMultiPhysics (commit 86729244): FSI equation with a fluid domain + mesh equation,
+  wall Dir/General with Temporal_and_spatial_values_file_path. run_patient.sh does it for you.
 =========================================================================== -->
 
 <GeneralSimulationParameters>
@@ -169,26 +174,21 @@
 </Add_equation>
 
 <Add_equation type="mesh">
-  <!-- Jacobian-based stiffening of small/distorted elements (patches 0004-0009); nearly uniform
-       at Mesh_scale_factor 0.1, see patches/svMP/README.md -->
-  <Mesh_stiffness_exponent> 2.0 </Mesh_stiffness_exponent>
-
   <Coupled> true </Coupled>
-  <!-- the mesh equation is linear elasticity: one solve per time step -->
+  <!-- the mesh equation is linear elasticity (no stiffening), solved within the coupled iterations -->
   <Min_iterations> 1 </Min_iterations>
-  <Max_iterations> 1 </Max_iterations>
-  <Tolerance> 0.1 </Tolerance>
+  <Max_iterations> 4 </Max_iterations>
+  <Tolerance> 0.01 </Tolerance>
   <Poisson_ratio> 0.30 </Poisson_ratio>
-  <!-- FSILS GMRES. The alternative used for the other production case is
-       <Linear_algebra type="petsc"> with the GAMG preconditioner, selected through
-       PETSC_OPTIONS="-pc_type gamg -pc_gamg_type agg" (exported by run_MB_aniso.sh and
-       tools/svmp_run.sh); the XML Preconditioner value is then overridden. -->
+  <!-- GMRES with PETSc and the GAMG (algebraic multigrid) preconditioner, as in the production runs.
+       GAMG has no XML value: it is selected through PETSC_OPTIONS="-pc_type gamg -pc_gamg_type agg"
+       (exported by run_MB_aniso.sh and tools/svmp_run.sh), which overrides the XML Preconditioner. -->
   <LS type="GMRES">
     <Max_iterations> 500 </Max_iterations>
-    <Tolerance> 5e-3 </Tolerance>
+    <Tolerance> 1e-4 </Tolerance>
     <Krylov_space_dimension> 300 </Krylov_space_dimension>
-    <Linear_algebra type="fsils">
-      <Preconditioner> fsils </Preconditioner>
+    <Linear_algebra type="petsc">
+      <Preconditioner> petsc-jacobi </Preconditioner>
     </Linear_algebra>
   </LS>
   <Output type="Spatial">
